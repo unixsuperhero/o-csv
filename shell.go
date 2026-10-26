@@ -174,11 +174,10 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 		noHeader, _ := args["no_header"].(bool)
 		return ReadFile(path, Options{Delim: d, NoHeader: noHeader})
 	}
-	// Each verb reads the file as pending work. Key order no longer needs
-	// it (the shell keeps an immediate result's keys in header order), but
-	// the output does: an immediate array prints one compact element per
-	// line (table columns would change shape), and a failure as an
-	// immediate result loses its "job #N table.VERB failed" stderr line.
+	// Each verb reads the file as pending work, because reading a file is
+	// I/O and application I/O never runs on the loop. The shell waits for
+	// the job and prints its value; a failure also prints its
+	// "job #N table.VERB failed" line on stderr.
 	pending := func(c ochazuke.Ctx, fn func(*Table) (any, error)) ochazuke.Result {
 		args := c.Args
 		return ochazuke.Pending(func(context.Context) (any, error) {
