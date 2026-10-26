@@ -58,7 +58,7 @@ func Main(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) > 0 && isFile(args[0]) {
 		return runTUI(args, stdin, stdout, stderr)
 	}
-	app := oden.New("o-csv", bareJSON(args), oden.WithBuiltins(), oden.WithStdio(stdin, stdout, stderr),
+	app := oden.New("o-csv", args, oden.WithBuiltins(), oden.WithStdio(stdin, stdout, stderr),
 		oden.WithDefault(func(_ context.Context, args []string) error {
 			if len(args) > 0 && !strings.HasPrefix(args[0], "-") && !strings.ContainsAny(args[0], "./") {
 				return oden.ErrNotFound
@@ -72,20 +72,6 @@ func Main(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 func isFile(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
-}
-
-// bareJSON drops a --json given without a value: the shell's --json takes
-// arguments as JSON, and its output is always JSON, so o-csv table show
-// FILE --json means what it says.
-func bareJSON(args []string) []string {
-	out := make([]string, 0, len(args))
-	for i, arg := range args {
-		if arg == "--json" && (i+1 == len(args) || strings.HasPrefix(args[i+1], "--")) {
-			continue
-		}
-		out = append(out, arg)
-	}
-	return out
 }
 
 // runTUI parses the viewer's flags and runs it (or renders one frame).
