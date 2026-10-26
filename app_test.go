@@ -463,3 +463,11 @@ func TestStartupLoadThroughTheModel(t *testing.T) {
 		t.Fatalf("startup load: %d rows, loading %q", len(a.Rows), a.Loading)
 	}
 }
+
+func TestNamedRegisterYank(t *testing.T) {
+	a := open(t, cities, false)
+	press(t, a, "\"", "a", "y")
+	if y, _ := a.r.ReadYank("a"); y.Text != "Tokyo" {
+		t.Fatalf(`"a y stored %q`, y.Text)
+	}
+}
