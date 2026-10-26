@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -161,54 +162,50 @@ func Columns(t *Table) []ColumnInfo {
 // newShell is the NOUN VERB shell over a runtime holding the table noun.
 func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 	r := ochazuke.NewRuntime()
-	read := func(c ochazuke.Ctx) (*Table, error) {
-		path := ochazuke.StringArg(c.Args, "path", "")
+	read := func(args ochazuke.Arguments) (*Table, error) {
+		path := ochazuke.StringArg(args, "path", "")
 		if path == "" {
 			return nil, errors.New("a file is required (- reads stdin)")
 		}
-		d, err := ParseDelim(ochazuke.StringArg(c.Args, "delim", ""))
+		d, err := ParseDelim(ochazuke.StringArg(args, "delim", ""))
 		if err != nil {
 			return nil, err
 		}
-		noHeader, _ := c.Args["no_header"].(bool)
+		noHeader, _ := args["no_header"].(bool)
 		return ReadFile(path, Options{Delim: d, NoHeader: noHeader})
 	}
-	result := func(v any, err error) ochazuke.Result {
-		if err != nil {
-			return ochazuke.Failed(err)
-		}
-		return ochazuke.Done(v)
+	// Each verb reads the file as pending work: off the loop, and its value
+	// reaches the shell as is (a synchronous result is round-tripped
+	// through a JSON map, which would sort a row's keys).
+	pending := func(c ochazuke.Ctx, fn func(*Table) (any, error)) ochazuke.Result {
+		args := c.Args
+		return ochazuke.Pending(func(context.Context) (any, error) {
+			t, err := read(args)
+			if err != nil {
+				return nil, err
+			}
+			return fn(t)
+		})
 	}
 	r.Define("table").
 		Verb("show", func(c ochazuke.Ctx) ochazuke.Result {
-			t, err := read(c)
-			if err != nil {
-				return ochazuke.Failed(err)
-			}
 			desc, _ := c.Args["desc"].(bool)
 			var cols []string
 			if s := ochazuke.StringArg(c.Args, "columns", ""); s != "" {
 				cols = strings.Split(s, ",")
 			}
-			return result(Show(t, ShowArgs{
+			q := ShowArgs{
 				Columns: cols, Search: ochazuke.StringArg(c.Args, "search", ""), Where: ochazuke.StringArg(c.Args, "where", ""),
 				Sort: ochazuke.StringArg(c.Args, "sort", ""), Desc: desc,
 				Offset: ochazuke.IntArg(c.Args, "offset", 0), Limit: ochazuke.IntArg(c.Args, "limit", 0),
-			}))
+			}
+			return pending(c, func(t *Table) (any, error) { return Show(t, q) })
 		}, "the rows as JSON objects keyed by column, in header order: {columns, total, offset, rows}; filter, sort, pick columns and page with the options").Positional("path").
 		Verb("columns", func(c ochazuke.Ctx) ochazuke.Result {
-			t, err := read(c)
-			if err != nil {
-				return ochazuke.Failed(err)
-			}
-			return ochazuke.Done(Columns(t))
+			return pending(c, func(t *Table) (any, error) { return Columns(t), nil })
 		}, "the header: [{index, name, type}], type guessed from every value (empty, bool, int, float, date, string)").Positional("path").
 		Verb("stats", func(c ochazuke.Ctx) ochazuke.Result {
-			t, err := read(c)
-			if err != nil {
-				return ochazuke.Failed(err)
-			}
-			return ochazuke.Done(Summarize(t))
+			return pending(c, func(t *Table) (any, error) { return Summarize(t), nil })
 		}, "row and column counts, the delimiter, and per column: type guess, empty and distinct counts, min, max, widest value").Positional("path")
 	file := map[string]ochazuke.Parameter{
 		"path":      {Type: "string", Required: true, Description: "the CSV file; - reads stdin"},
