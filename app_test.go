@@ -39,12 +39,14 @@ func open(t *testing.T, path string, edit bool) *App {
 func view(a *App) string { return ansi.Strip(a.m.View().Content) }
 
 // press sends keys one by one, failing on the first error the model shows.
+// The status line also carries what a verb reports (ctx.Status: "copied
+// …", "wrote …"); those are not errors.
 func press(t *testing.T, a *App, keys ...string) {
 	t.Helper()
 	for _, key := range keys {
 		Press(a.m, key)
-		if a.m.Status != "" {
-			t.Fatalf("key %q: %s", key, a.m.Status)
+		if s := a.m.Status; s != "" && !strings.HasPrefix(s, "copied ") && !strings.HasPrefix(s, "wrote ") {
+			t.Fatalf("key %q: %s", key, s)
 		}
 	}
 }
@@ -53,6 +55,32 @@ func press(t *testing.T, a *App, keys ...string) {
 func pressErr(a *App, key string) string {
 	Press(a.m, key)
 	return a.m.Status
+}
+
+// runCmds runs what the model asked for and feeds the completions back,
+// as Bubble Tea would. A timer (the jobs ticker's linger) never answers in
+// time; it is skipped.
+func runCmds(a *App, cmd tea.Cmd) {
+	if cmd == nil {
+		return
+	}
+	got := make(chan tea.Msg, 1)
+	go func() { got <- cmd() }()
+	var m tea.Msg
+	select {
+	case m = <-got:
+	case <-time.After(200 * time.Millisecond):
+		return
+	}
+	switch msg := m.(type) {
+	case tea.BatchMsg:
+		for _, c := range msg {
+			runCmds(a, c)
+		}
+	case ochazuke.Completion:
+		_, next := a.m.Update(msg)
+		runCmds(a, next)
+	}
 }
 
 func at(t *testing.T, a *App, row, col int) {
@@ -252,6 +280,30 @@ func TestYankCellAndRowToRegistersAndClipboard(t *testing.T) {
 	}
 }
 
+// A copy says so on the status line; a clipboard that fails is a notice,
+// taken back by the next copy that reaches the clipboard.
+func TestCopyReportsThroughTheUI(t *testing.T) {
+	a := open(t, cities, false)
+	settle := func(key string) {
+		t.Helper()
+		runCmds(a, Press(a.m, key))
+	}
+	settle("y")
+	if a.m.Status != "copied the cell (5 characters) to the registers" {
+		t.Fatalf("status without a clipboard: %q", a.m.Status)
+	}
+	a.Clipboard = func(string) error { return errors.New("pbcopy: broken pipe") }
+	settle("y")
+	if len(a.m.Notices) != 1 || !strings.Contains(a.m.Notices[0], "clipboard: pbcopy: broken pipe") {
+		t.Fatalf("notices after a failed copy: %q", a.m.Notices)
+	}
+	a.Clipboard = func(string) error { return nil }
+	settle("Y")
+	if len(a.m.Notices) != 0 || !strings.HasPrefix(a.m.Status, "copied the row (") {
+		t.Fatalf("after a good copy: notices %q, status %q", a.m.Notices, a.m.Status)
+	}
+}
+
 func copyFile(t *testing.T, from string) string {
 	t.Helper()
 	data, err := os.ReadFile(from)
@@ -333,6 +385,9 @@ func TestEditModeEditsUndoesAndSaves(t *testing.T) {
 	press(t, a, "ctrl+s")
 	if a.Dirty {
 		t.Fatal("still dirty after save")
+	}
+	if !strings.HasPrefix(a.m.Status, "wrote 9 rows to ") {
+		t.Fatalf("save status %q", a.m.Status)
 	}
 	tab, err := ReadFile(path, Options{})
 	if err != nil || len(tab.Rows) != 9 || tab.Rows[0][0] != "Edo" || tab.Rows[4][6] != `Banking, "chocolate", lakes` {
@@ -441,31 +496,7 @@ func TestStartupLoadThroughTheModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, cmd := a.m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	var run func(tea.Cmd)
-	run = func(cmd tea.Cmd) {
-		if cmd == nil {
-			return
-		}
-		// A timer (the jobs ticker's linger) never answers in time; skip it.
-		got := make(chan tea.Msg, 1)
-		go func() { got <- cmd() }()
-		var m tea.Msg
-		select {
-		case m = <-got:
-		case <-time.After(200 * time.Millisecond):
-			return
-		}
-		switch msg := m.(type) {
-		case tea.BatchMsg:
-			for _, c := range msg {
-				run(c)
-			}
-		case ochazuke.Completion:
-			_, next := a.m.Update(msg)
-			run(next)
-		}
-	}
-	run(cmd)
+	runCmds(a, cmd)
 	if len(a.Rows) != 10 || a.Loading != "" || !strings.Contains(view(a), "Tokyo") {
 		t.Fatalf("startup load: %d rows, loading %q", len(a.Rows), a.Loading)
 	}

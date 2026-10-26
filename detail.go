@@ -26,7 +26,7 @@ func (a *App) registerDetail() {
 	r.Define("value").
 		Verb("yank", func(c ochazuke.Ctx) ochazuke.Result {
 			v, _ := c.Instance.Data.(string)
-			return a.copyText(v, ochazuke.StringArg(c.Args, "register", ""))
+			return a.copyText(c, "value", v, ochazuke.StringArg(c.Args, "register", ""))
 		}, "Copy the value into the registers and the system clipboard").
 		Mode("normal").Bind("y", ochazuke.Do("value.yank"))
 	r.Define(detailID).Mode("normal").

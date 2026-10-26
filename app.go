@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -42,6 +43,8 @@ type App struct {
 
 	// Clipboard copies text to the system clipboard; nil when there is none.
 	Clipboard func(string) error
+	// clipNotice is the footer notice of the last failed clipboard copy.
+	clipNotice ochazuke.NoticeID
 
 	widths []int // display width per column, from the content (view.go)
 	view   viewState
@@ -329,6 +332,17 @@ func (a *App) Save(path string) error {
 		return err
 	}
 	a.Path, a.Dirty = path, false
+	return nil
+}
+
+// saveTo is Save with a status line saying what was written. A prompt's
+// commit runs it too, and a commit has no Ctx of the verb that asked, so
+// it posts through the runtime's UI (what ctx.Status does underneath).
+func (a *App) saveTo(path string) error {
+	if err := a.Save(path); err != nil {
+		return err
+	}
+	a.r.UI().Status(fmt.Sprintf("wrote %s rows to %s", count(len(a.Rows)), a.describe()))
 	return nil
 }
 

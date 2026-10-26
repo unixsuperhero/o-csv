@@ -190,7 +190,7 @@ func (a *App) registerVerbs() {
 			if err != nil {
 				return ochazuke.Failed(err)
 			}
-			return a.copyText(RowCSV(a.Rows[i], a.Delim), ochazuke.StringArg(c.Args, "register", ""))
+			return a.copyText(c, "row", RowCSV(a.Rows[i], a.Delim), ochazuke.StringArg(c.Args, "register", ""))
 		}, "Copy the row as one CSV line into the registers and the system clipboard").When(grid.GuardInGrid)
 
 	register := map[string]ochazuke.Parameter{"register": {Type: "string", Description: "Register name; the active register, else the unnamed one"}}
@@ -201,7 +201,7 @@ func (a *App) registerVerbs() {
 			if at.Row < 0 {
 				return ochazuke.Failed(errors.New("no cell to copy"))
 			}
-			return a.copyText(a.Cell(at), ochazuke.StringArg(c.Args, "register", ""))
+			return a.copyText(c, "cell", a.Cell(at), ochazuke.StringArg(c.Args, "register", ""))
 		}, "Copy the cell's value into the registers and the system clipboard")
 	params("cell.yank", register)
 
@@ -338,17 +338,30 @@ func (a *App) find(dir int, here bool) error {
 }
 
 // copyText puts text in the registers now and on the system clipboard off
-// the loop.
-func (a *App) copyText(text, register string) ochazuke.Result {
+// the loop, and says so on the status line. A clipboard that fails is a
+// notice (it stays until a later copy reaches the clipboard), because the
+// copy still landed in the registers.
+func (a *App) copyText(c ochazuke.Ctx, what, text, register string) ochazuke.Result {
 	y := ochazuke.Yank{Text: text}
 	if err := a.r.StoreYank(y, register, false); err != nil {
 		return ochazuke.Failed(err)
 	}
+	copied := fmt.Sprintf("copied the %s (%s characters)", what, count(len([]rune(text))))
 	clip := a.Clipboard
 	if clip == nil {
+		c.Status(copied + " to the registers")
 		return ochazuke.Done(y)
 	}
-	return ochazuke.Pending(func(context.Context) (any, error) { return y, clip(text) })
+	return ochazuke.Pending(func(context.Context) (any, error) { return y, clip(text) }).
+		Then(func(c ochazuke.Ctx, _ any, err error) {
+			c.ClearNotice(a.clipNotice)
+			a.clipNotice = 0
+			if err != nil {
+				a.clipNotice = c.Notify("clipboard: " + err.Error() + " (copies still reach the registers)")
+				return
+			}
+			c.Status(copied)
+		})
 }
 
 // registerEditVerbs are the edit mode verbs of ochazuke's CSV example,
@@ -360,15 +373,15 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 	r.Define("sheet").
 		Verb("save", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
 			if a.Path == "" || a.Path == "-" {
-				return nil, a.prompt("Save as", "", "path", a.Save)
+				return nil, a.prompt("Save as", "", "path", a.saveTo)
 			}
-			return done(a.Save(a.Path))
+			return done(a.saveTo(a.Path))
 		}), "Write the sheet to its file (edit mode)").When(guardEdit).
 		Verb("saveAs", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
 			if p := ochazuke.StringArg(args, "path", ""); p != "" {
-				return done(a.Save(p))
+				return done(a.saveTo(p))
 			}
-			return nil, a.prompt("Save as", a.Path, "path", a.Save)
+			return nil, a.prompt("Save as", a.Path, "path", a.saveTo)
 		}), "Write the sheet to another file and keep editing it there (edit mode)").When(guardEdit).
 		Verb("addColumn", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
 			add := func(name string) error {
