@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -323,19 +324,49 @@ func (a *App) Save(path string) error {
 	if path == "" || path == "-" {
 		return errors.New("the sheet has no file; use sheet.saveAs")
 	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	if err := Write(f, &Table{Header: a.Header, Rows: a.Rows, Delim: a.Delim}, a.Opts.NoHeader); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
+	t := &Table{Header: a.Header, Rows: a.Rows, Delim: a.Delim}
+	if err := writeAtomic(path, func(w io.Writer) error { return Write(w, t, a.Opts.NoHeader) }); err != nil {
 		return err
 	}
 	a.Path, a.Dirty = path, false
 	return nil
+}
+
+// writeAtomic replaces path with what write produces without ever leaving
+// it half written: the bytes go to a temporary file beside it (same
+// directory, so the rename stays on one file system), which gets the
+// original's mode (0644 for a new file), is synced and closed, then
+// renamed over path. On any error the temporary file is removed and path
+// is untouched.
+func writeAtomic(path string, write func(io.Writer) error) (err error) {
+	mode := os.FileMode(0o644)
+	if info, statErr := os.Stat(path); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer func() {
+		if err != nil {
+			f.Close()
+			os.Remove(tmp)
+		}
+	}()
+	if err = write(f); err != nil {
+		return err
+	}
+	if err = f.Chmod(mode); err != nil {
+		return err
+	}
+	if err = f.Sync(); err != nil {
+		return err
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // sortBy orders the rows by column j. The first sort on a column is

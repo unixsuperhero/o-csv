@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -469,5 +471,56 @@ func TestNamedRegisterYank(t *testing.T) {
 	press(t, a, "\"", "a", "y")
 	if y, _ := a.r.ReadYank("a"); y.Text != "Tokyo" {
 		t.Fatalf(`"a y stored %q`, y.Text)
+	}
+}
+
+// A save that fails partway leaves the original bytes and no stray
+// temporary file; a save that succeeds keeps the file's mode.
+func TestSaveIsAtomic(t *testing.T) {
+	path := copyFile(t, cities)
+	before, _ := os.ReadFile(path)
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := writeAtomic(path, func(w io.Writer) error {
+		if _, err := io.WriteString(w, "city,coun"); err != nil {
+			return err
+		}
+		return errors.New("disk full")
+	})
+	if err == nil || !strings.Contains(err.Error(), "disk full") {
+		t.Fatalf("failed write returned %v", err)
+	}
+	if after, _ := os.ReadFile(path); !bytes.Equal(before, after) {
+		t.Fatalf("the original was changed:\n%s", after)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
+		t.Fatalf("temporary file left behind: %v", entries)
+	}
+	a := open(t, path, true)
+	press(t, a, "i")
+	Press(a.m, "ctrl+u")
+	Type(a.m, "Edo")
+	press(t, a, "enter", "ctrl+s")
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("saved mode %v, %v", info.Mode(), err)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
+		t.Fatalf("temporary file left behind: %v", entries)
+	}
+	if tab, err := ReadFile(path, Options{}); err != nil || tab.Rows[0][0] != "Edo" || len(tab.Rows) != 10 {
+		t.Fatalf("saved: %v", err)
+	}
+	// saveAs into a directory that cannot be written fails and writes nothing.
+	dir := filepath.Join(t.TempDir(), "locked")
+	if err := os.Mkdir(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Save(filepath.Join(dir, "out.csv")); err == nil {
+		t.Fatal("save into an unwritable directory succeeded")
+	}
+	if a.Path != path {
+		t.Fatalf("a failed saveAs moved the sheet to %s", a.Path)
 	}
 }
