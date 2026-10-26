@@ -220,32 +220,48 @@ func TestFilterField(t *testing.T) {
 func TestRowDetail(t *testing.T) {
 	a := open(t, cities, false)
 	press(t, a, "l", "l", "l", "l", "l", "l", "enter")
-	if a.r.TopModal() != detailID {
-		t.Fatalf("enter opened %q", a.r.TopModal())
+	if a.r.TopModal() != "" || !a.ShowDetail || a.r.Focus != "r0:c6" {
+		t.Fatalf("enter: modal %q, detail %v, focus %s", a.r.TopModal(), a.ShowDetail, a.r.Focus)
 	}
 	v := view(a)
-	for _, want := range []string{"Row 1 of 10", "population", "13960000", "home to the Imperial"} {
+	for _, want := range []string{"row 1 of 10", "population  13960000", "home to the Imperial Palace"} {
 		if !strings.Contains(v, want) {
 			t.Fatalf("detail lacks %q:\n%s", want, v)
 		}
 	}
-	// The cursor's column is selected; y copies its value.
-	press(t, a, "k", "y")
-	if y, _ := a.r.ReadYank(""); y.Text != "true" {
-		t.Fatalf("detail yank %q", y.Text)
+	// The detail follows the cursor; the focus never leaves the grid.
+	press(t, a, "j")
+	if v := view(a); !strings.Contains(v, "row 2 of 10") || !strings.Contains(v, "city        Osaka") {
+		t.Fatalf("after j:\n%s", v)
 	}
-	// The fields are read-only: no marks, and the hints offer none.
-	Press(a.m, "space")
-	if marked := a.r.List(detailList).Marked(); len(marked) != 0 || strings.Contains(view(a), "list.mark") {
-		t.Fatalf("the detail took a mark: %v\n%s", marked, view(a))
+	press(t, a, "enter")
+	if a.ShowDetail || strings.Contains(view(a), "row 2 of 10") {
+		t.Fatal("enter left the detail shown")
 	}
-	press(t, a, "esc")
-	if a.r.TopModal() != "" || a.r.Focus != "r0:c6" {
-		t.Fatalf("after esc: modal %q focus %s", a.r.TopModal(), a.r.Focus)
+}
+
+// J and K scroll a detail longer than its pane while the cursor stays put,
+// and only then: the rows are guarded by detail-scrolls.
+func TestRowDetailScrolls(t *testing.T) {
+	a := open(t, cities, false)
+	a.m.Height = 14 // the detail pane is shorter than the seven fields
+	press(t, a, "enter")
+	v := view(a)
+	if !strings.Contains(v, "row 1 of 10 · 1–5 / 8") {
+		t.Fatalf("an overflowing detail shows no marker:\n%s", v)
 	}
-	press(t, a, "enter", "q")
-	if a.r.TopModal() != "" {
-		t.Fatal("q left the detail open")
+	press(t, a, "J")
+	if a.detail.Offset() != 1 || a.r.Focus != "r0:c0" {
+		t.Fatalf("J: offset %d focus %s", a.detail.Offset(), a.r.Focus)
+	}
+	press(t, a, "K")
+	if a.detail.Offset() != 0 {
+		t.Fatalf("K: offset %d", a.detail.Offset())
+	}
+	press(t, a, "enter")
+	view(a)
+	if pressErr(a, "J"); a.detail.Offset() != 0 {
+		t.Fatal("J scrolled a hidden detail")
 	}
 }
 

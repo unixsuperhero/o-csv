@@ -179,12 +179,9 @@ func (a *App) registerVerbs() {
 
 	r.Define("row").
 		Verb("detail", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
-			i, err := rowOf(c)
-			if err != nil {
-				return nil, err
-			}
-			return nil, a.openDetail(i)
-		}), "Show the row as column: value lines in a modal").When(grid.GuardInGrid).
+			a.toggleDetail()
+			return a.state(), nil
+		}), "Show or hide the row detail: every column of the cursor's row, beside the table (below it when narrow); J and K scroll it").When(grid.GuardInGrid).
 		Verb("yank", func(c ochazuke.Ctx) ochazuke.Result {
 			i, err := rowOf(c.Context)
 			if err != nil {

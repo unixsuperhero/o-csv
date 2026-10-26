@@ -1,6 +1,6 @@
 // Command o-csv is the family's CSV viewer: a full-screen table over one
 // file (or stdin) with vim motions, search, a column filter, sorting,
-// hidden and frozen columns, a row detail modal and copy to the registers
+// hidden and frozen columns, a row detail pane and copy to the registers
 // and the system clipboard. Editing (ochazuke's CSV example: a patch per
 // edit, undo, write-back) is off unless --edit or ctrl+e turns it on;
 // read-only, nothing writes the file.
@@ -173,7 +173,7 @@ func parseInterspersed(flags *flag.FlagSet, args []string) ([]string, error) {
 }
 
 // New builds the viewer on a fresh runtime: the sheet page holding the
-// grid and the filter field, the prompt, the row detail, the picker, the
+// grid, the row detail and the filter field, the prompt, the picker, the
 // nouns, verbs and bindings. The sheet starts empty; Load or sheet.load
 // fills it.
 func New(opts Options, edit bool) (*App, error) {
@@ -199,7 +199,9 @@ func New(opts Options, edit bool) (*App, error) {
 	a.grid = g
 	a.registerPrompt()
 	a.registerVerbs()
-	a.registerDetail()
+	if err := a.registerDetail(); err != nil {
+		return nil, err
+	}
 	if err := a.registerFilter(); err != nil {
 		return nil, err
 	}

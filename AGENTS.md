@@ -18,7 +18,7 @@ Family plans, todos and the roadmap live in `~/hub/o-plans/` (`README.md` is the
 | The table view (window, widths, frozen and hidden columns, highlights) and the status line | `view.go` |
 | Verbs: viewer verbs, then the guarded edit verbs | `verbs.go` |
 | Key rows | `bindings.go` |
-| Row detail modal | `detail.go` |
+| Row detail pane (an ochazuke `Detail`: J/K scroll it) | `detail.go` |
 | Filter field, prompt modal | `filter.go`, `prompt.go` |
 | Edit-mode transformations and shaped yanks/pastes | `edit.go` |
 | System clipboard | `clipboard.go` |

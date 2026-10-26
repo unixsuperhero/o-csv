@@ -33,13 +33,15 @@ type App struct {
 	Undo  []Patch
 	Redo  []Patch
 
-	Filter  FilterState
-	Sort    SortState
-	Search  string
-	Hidden  map[int]bool
-	Freeze  bool
-	Loading string // the path being read off the loop, "" when idle
-	LoadErr error
+	Filter FilterState
+	Sort   SortState
+	Search string
+	Hidden map[int]bool
+	Freeze bool
+	// ShowDetail draws the cursor row's detail beside or below the table.
+	ShowDetail bool
+	Loading    string // the path being read off the loop, "" when idle
+	LoadErr    error
 
 	// Clipboard copies text to the system clipboard; nil when there is none.
 	Clipboard func(string) error
@@ -53,6 +55,7 @@ type App struct {
 	r        *ochazuke.Runtime
 	m        *ochazuke.Model
 	grid     *grid.Grid
+	detail   *ochazuke.Detail
 	field    *ochazuke.Input
 	filterIn *ochazuke.Input
 	ask      *question
@@ -450,7 +453,7 @@ func (a *App) columnName(j int) string {
 
 // state is the value a sheet verb returns.
 func (a *App) state() map[string]any {
-	return map[string]any{"path": a.Path, "edit": a.Edit, "dirty": a.Dirty, "rows": len(a.Rows), "columns": len(a.Header), "visible": a.grid.VisibleCount(), "undo": len(a.Undo), "redo": len(a.Redo), "cursor": a.grid.Cursor(), "filter": a.Filter, "sort": a.Sort, "search": a.Search, "hidden": a.hiddenList(), "freeze": a.Freeze, "delimiter": DelimName(a.Delim)}
+	return map[string]any{"path": a.Path, "edit": a.Edit, "dirty": a.Dirty, "rows": len(a.Rows), "columns": len(a.Header), "visible": a.grid.VisibleCount(), "undo": len(a.Undo), "redo": len(a.Redo), "cursor": a.grid.Cursor(), "filter": a.Filter, "sort": a.Sort, "search": a.Search, "hidden": a.hiddenList(), "freeze": a.Freeze, "detail": a.ShowDetail, "delimiter": DelimName(a.Delim)}
 }
 
 func (a *App) hiddenList() []int {

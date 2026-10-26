@@ -77,14 +77,37 @@ var (
 	gutterStyle = lipgloss.NewStyle().Faint(true)
 )
 
-// render is the sheet page: the status line, the table and the filter field.
+// splitWidth is the narrowest page that draws the detail beside the
+// table; narrower, it goes below.
+const splitWidth = 100
+
+// render is the sheet page: the status line, the table (with the row
+// detail while it is shown) and the filter field.
 func (a *App) render(_ *ochazuke.Runtime, width, height int) ochazuke.Block {
 	s := ochazuke.NewStyles(*a.m.Appearance)
-	table := a.tableView(width, max(1, height-2))
+	table := a.sheetView(width, max(1, height-2))
 	status := ansi.Truncate(strings.ReplaceAll(a.status(), "\n", " "), width, "…")
 	body := s.Muted.Render(status) + "\n" + strings.TrimRight(table, "\n")
 	filter := a.filterLine(width).Offset(0, strings.Count(body, "\n")+1)
 	return filter.WithText(body + "\n" + filter.Text)
+}
+
+// sheetView is the table, with the row detail beside it on a wide page
+// (the table keeps three fifths) or below it on a narrow one.
+func (a *App) sheetView(width, height int) string {
+	if !a.ShowDetail {
+		return a.tableView(width, height)
+	}
+	if width >= splitWidth {
+		left := (width - 2) * 3 / 5
+		rule := strings.TrimSuffix(strings.Repeat(gutterStyle.Render("│")+" \n", height), "\n")
+		return lipgloss.JoinHorizontal(lipgloss.Top, a.tableView(left, height), rule, a.detailView(width-left-2, height))
+	}
+	top := max(1, height*3/5)
+	if height-top < 3 {
+		return a.tableView(width, height)
+	}
+	return a.tableView(width, top) + "\n" + gutterStyle.Render(strings.Repeat("─", width)) + "\n" + a.detailView(width, height-top-1)
 }
 
 // tableView draws the header and the visible window of rows into width x

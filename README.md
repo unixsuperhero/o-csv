@@ -36,7 +36,8 @@ The table fills the screen: a header row, then only the rows that fit on screen.
 | `s` | sort by the cursor's column: ascending, then descending, then back to file order. Numbers sort numerically and empty cells go last |
 | `-` / `=` | hide the cursor's column / show every column again |
 | `F` | freeze the first shown column at the left (toggle) |
-| `enter` | row detail: a modal with each column and its value, the long value wrapped below. `j`/`k` move, `y` copies the value, `esc`/`q`/`enter` close |
+| `enter` | show or hide the row detail: every column of the cursor's row with its whole value, wrapped, beside the table (below it under 100 columns). It follows the cursor; the focus stays in the table |
+| `J` / `K` | scroll the row detail while it is longer than its pane (counts work: `5J`) |
 | `y` / `Y` | copy the cell / copy the row as one CSV line. The copy goes to the ochazuke registers (`"a y` names one) and to the system clipboard (pbcopy, wl-copy, xclip or xsel, whichever is on PATH) |
 | `ctrl+o` | open another file |
 | `:` | the command palette (every verb, including those without a key) |

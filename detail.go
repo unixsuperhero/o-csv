@@ -9,77 +9,89 @@ import (
 	"github.com/unixsuperhero/ochazuke"
 )
 
-// The row detail: enter on a cell opens the row as a modal table of column
-// and value, one row per column of the file (hidden columns included). The
-// rows are a list of the value noun, so j/k move and the one highlighted
-// row is the list's (read-only: it takes no marks); y copies the value; esc (the modal noun), q or enter
-// close it. Below the table the selected value is printed in full, wrapped,
-// because the table cuts long cells.
+// The row detail: enter shows the cursor's row as one line per column
+// (name, then the whole value, wrapped) in a pane beside the table, or
+// below it on a narrow screen; enter again hides it. It is an ochazuke
+// Detail (AddDetail): the framework keeps its scroll offset and J/K scroll
+// it while the focus stays in the grid (the rows are the app noun's,
+// guarded so they answer only while the detail overflows), and a new row
+// starts it at the top. A Detail is not a focus stop, so the motions keep
+// moving the cursor and the pane follows. How the two panes share the
+// screen is render's (view.go), through the page's pane layout.
 
-const (
-	detailID   = "row-detail"
-	detailList = "row-detail/fields"
-)
+const detailID = "row-detail"
 
-func (a *App) registerDetail() {
-	r := a.r
-	r.Define("value").
-		Verb("yank", func(c ochazuke.Ctx) ochazuke.Result {
-			v, _ := c.Instance.Data.(string)
-			return a.copyText(c, "value", v, ochazuke.StringArg(c.Args, "register", ""))
-		}, "Copy the value into the registers and the system clipboard").
-		Mode("normal").Bind("y", ochazuke.Do("value.yank"))
-	r.Define(detailID).Mode("normal").
-		Bind("q", ochazuke.Do("modal.pop")).
-		Bind("enter", ochazuke.Do("modal.pop"))
-	a.m.ModalViews[detailID] = ochazuke.ModalView{Title: "Row", Render: a.detailView}
+// registerDetail adds the detail under the sheet page. Its item is the
+// cursor's row, so moving to another row resets the scroll.
+func (a *App) registerDetail() error {
+	d, err := a.r.AddDetail(detailID, func() string { return fmt.Sprint(a.grid.Cursor().Row) }, ochazuke.Parent(pageID))
+	a.detail = d
+	return err
 }
 
-// openDetail opens the modal for row i.
-func (a *App) openDetail(i int) error {
-	r := a.r
-	if _, err := r.OpenModal(detailID, ochazuke.Payload{Prompt: fmt.Sprintf("Row %s of %s", count(i+1), count(len(a.Rows)))}); err != nil {
-		return err
+// toggleDetail shows or hides the pane. Hidden, its window is emptied so
+// J and K stop answering (they answer only while the detail overflows).
+func (a *App) toggleDetail() {
+	a.ShowDetail = !a.ShowDetail
+	if !a.ShowDetail {
+		a.detail.Window("", 0, 0)
 	}
-	keyWidth := 6
-	items := make([]ochazuke.ListItem, len(a.Header))
+}
+
+// detailView draws the pane: a title line naming the row (with the
+// scroll position while it overflows), then the window of field lines.
+func (a *App) detailView(width, height int) string {
+	row := a.grid.Cursor().Row
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+	if row < 0 || row >= len(a.Rows) {
+		return pad(gutterStyle.Render("no row"), width) + strings.Repeat("\n"+strings.Repeat(" ", width), height-1)
+	}
+	body, marker := a.detail.Window(a.detailText(row, width), 0, height-1)
+	title := fmt.Sprintf("row %s of %s", count(row+1), count(len(a.Rows)))
+	if marker != "" {
+		title += " · " + marker
+	}
+	lines := []string{pad(gutterStyle.Render(title), width)}
+	for _, line := range strings.Split(body, "\n") {
+		lines = append(lines, pad(line, width))
+	}
+	for len(lines) < height {
+		lines = append(lines, strings.Repeat(" ", width))
+	}
+	return strings.Join(lines[:height], "\n")
+}
+
+// detailText is row as "name  value" lines, every column (hidden ones
+// included), the names in one column and each value wrapped under its own
+// start; the cursor's column is bold.
+func (a *App) detailText(row, width int) string {
+	keyWidth := 4
+	for _, name := range a.Header {
+		keyWidth = max(keyWidth, min(ansi.StringWidth(name), 24))
+	}
+	room := max(8, width-keyWidth-2)
+	indent := strings.Repeat(" ", keyWidth+2)
+	col := a.grid.Cursor().Col
+	var b strings.Builder
 	for j, name := range a.Header {
-		keyWidth = max(keyWidth, ansi.StringWidth(name))
-		value := a.Rows[i][j]
-		items[j] = ochazuke.ListItem{ID: fmt.Sprintf("%s/%d", detailID, j), Label: name, Noun: "value", Data: value, Cells: []string{name, value}}
-	}
-	cols := ochazuke.Columns(ochazuke.Column{Title: "column", Width: min(keyWidth, 28)}, ochazuke.Column{Title: "value"})
-	list, err := r.AddList(detailList, items, ochazuke.Parent(detailID), cols, ochazuke.NoSpill(), ochazuke.NoMarks())
-	if err != nil {
-		_ = r.Pop()
-		return err
-	}
-	view := a.m.ModalViews[detailID]
-	view.Title = fmt.Sprintf("Row %s of %s", count(i+1), count(len(a.Rows)))
-	a.m.ModalViews[detailID] = view
-	if j := a.grid.Cursor().Col; j >= 0 && j < len(items) {
-		_ = list.Select(items[j].ID)
-	}
-	return list.Focus()
-}
-
-// detailView draws the field table with the selected value wrapped below.
-func (a *App) detailView(r *ochazuke.Runtime, _ *ochazuke.Instance, w, h int) ochazuke.Block {
-	list := r.List(detailList)
-	if list == nil {
-		return ochazuke.Text("")
-	}
-	item, _ := list.Selected()
-	value, _ := item.Data.(string)
-	wrapped := ""
-	room := min(6, max(0, h/3))
-	if room > 0 && ansi.StringWidth(value) > max(1, w-30) {
-		lines := strings.Split(lipgloss.NewStyle().Width(max(1, w)).Render(value), "\n")
-		if len(lines) > room-1 {
-			lines = append(lines[:room-2], "…")
+		key := fit(name, keyWidth)
+		if j == col {
+			key = headerStyle.Render(key)
 		}
-		wrapped = "\n" + strings.Repeat("─", max(1, w)) + "\n" + strings.Join(lines, "\n")
+		value := strings.ReplaceAll(a.Rows[row][j], "\r", "")
+		wrapped := strings.Split(lipgloss.NewStyle().Width(room).Render(value), "\n")
+		for i, line := range wrapped {
+			if i == 0 {
+				b.WriteString(key + "  " + strings.TrimRight(line, " "))
+			} else {
+				b.WriteString("\n" + indent + strings.TrimRight(line, " "))
+			}
+		}
+		if j < len(a.Header)-1 {
+			b.WriteByte('\n')
+		}
 	}
-	table := list.View(w, max(1, h-strings.Count(wrapped, "\n")))
-	return ochazuke.Text(strings.TrimRight(table, "\n") + wrapped)
+	return b.String()
 }
