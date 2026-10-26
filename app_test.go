@@ -206,6 +206,11 @@ func TestRowDetail(t *testing.T) {
 	if y, _ := a.r.ReadYank(""); y.Text != "true" {
 		t.Fatalf("detail yank %q", y.Text)
 	}
+	// The fields are read-only: no marks, and the hints offer none.
+	Press(a.m, "space")
+	if marked := a.r.List(detailList).Marked(); len(marked) != 0 || strings.Contains(view(a), "list.mark") {
+		t.Fatalf("the detail took a mark: %v\n%s", marked, view(a))
+	}
 	press(t, a, "esc")
 	if a.r.TopModal() != "" || a.r.Focus != "r0:c6" {
 		t.Fatalf("after esc: modal %q focus %s", a.r.TopModal(), a.r.Focus)

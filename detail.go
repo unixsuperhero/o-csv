@@ -12,7 +12,7 @@ import (
 // The row detail: enter on a cell opens the row as a modal table of column
 // and value, one row per column of the file (hidden columns included). The
 // rows are a list of the value noun, so j/k move and the one highlighted
-// row is the list's; y copies the value; esc (the modal noun), q or enter
+// row is the list's (read-only: it takes no marks); y copies the value; esc (the modal noun), q or enter
 // close it. Below the table the selected value is printed in full, wrapped,
 // because the table cuts long cells.
 
@@ -49,7 +49,7 @@ func (a *App) openDetail(i int) error {
 		items[j] = ochazuke.ListItem{ID: fmt.Sprintf("%s/%d", detailID, j), Label: name, Noun: "value", Data: value, Cells: []string{name, value}}
 	}
 	cols := ochazuke.Columns(ochazuke.Column{Title: "column", Width: min(keyWidth, 28)}, ochazuke.Column{Title: "value"})
-	list, err := r.AddList(detailList, items, ochazuke.Parent(detailID), cols, ochazuke.NoSpill())
+	list, err := r.AddList(detailList, items, ochazuke.Parent(detailID), cols, ochazuke.NoSpill(), ochazuke.NoMarks())
 	if err != nil {
 		_ = r.Pop()
 		return err
