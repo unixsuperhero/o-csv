@@ -524,3 +524,19 @@ func TestSaveIsAtomic(t *testing.T) {
 		t.Fatalf("a failed saveAs moved the sheet to %s", a.Path)
 	}
 }
+
+// The last shown column takes the rest of the line rather than stopping at
+// the width cap; the others keep the cap.
+func TestLastColumnTakesTheRemainingWidth(t *testing.T) {
+	a := open(t, cities, false) // 120 wide
+	v := view(a)
+	if !strings.Contains(v, "Largest metropolitan area in the world, home t…") {
+		t.Fatalf("notes still capped:\n%s", v)
+	}
+	a.m.Width = 80
+	for _, line := range strings.Split(view(a), "\n") {
+		if strings.Contains(line, "Tokyo") && !strings.HasSuffix(strings.TrimRight(line, " "), "Larges…") {
+			t.Fatalf("80 wide: %q", line)
+		}
+	}
+}

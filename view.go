@@ -181,6 +181,11 @@ func (a *App) tableView(width, height int) string {
 	room := width - gutter
 	for i, j := range cols {
 		widths[i] = min(a.widths[j], max(1, room-1))
+		if i == len(cols)-1 {
+			// The last column takes the rest of the line instead of
+			// stopping at the width cap while the line has room.
+			widths[i] = max(1, room-1)
+		}
 		room -= widths[i] + 1
 	}
 	selected := map[grid.Ref]bool{}
