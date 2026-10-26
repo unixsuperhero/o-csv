@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/unixsuperhero/ochazuke"
 	ocli "github.com/unixsuperhero/ochazuke/cli"
@@ -419,5 +420,46 @@ func TestBindingRowsAreAtomic(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// The TUI schedules sheet.load before the program starts; the model's first
+// update hands the job to Bubble Tea and its completion fills the sheet.
+func TestStartupLoadThroughTheModel(t *testing.T) {
+	a, err := New(Options{}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.r.Execute(ochazuke.Request{Noun: "sheet", Verb: "load", Target: pageID, Args: ochazuke.Arguments{"path": cities}}); err != nil {
+		t.Fatal(err)
+	}
+	_, cmd := a.m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	var run func(tea.Cmd)
+	run = func(cmd tea.Cmd) {
+		if cmd == nil {
+			return
+		}
+		// A timer (the jobs ticker's linger) never answers in time; skip it.
+		got := make(chan tea.Msg, 1)
+		go func() { got <- cmd() }()
+		var m tea.Msg
+		select {
+		case m = <-got:
+		case <-time.After(200 * time.Millisecond):
+			return
+		}
+		switch msg := m.(type) {
+		case tea.BatchMsg:
+			for _, c := range msg {
+				run(c)
+			}
+		case ochazuke.Completion:
+			_, next := a.m.Update(msg)
+			run(next)
+		}
+	}
+	run(cmd)
+	if len(a.Rows) != 10 || a.Loading != "" || !strings.Contains(view(a), "Tokyo") {
+		t.Fatalf("startup load: %d rows, loading %q", len(a.Rows), a.Loading)
 	}
 }
