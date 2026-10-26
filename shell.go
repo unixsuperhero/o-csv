@@ -264,13 +264,13 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 					c.Status(fmt.Sprintf("rows %d–%d of %d", res.Offset+1, res.Offset+n, res.Total))
 				}
 			})
-		}, "the rows that match, as rows {noun: row, id: row/N (N the row in the file), data: {COLUMN: value, ...} in header order, cells}; filter, sort, pick columns and page with the options; --format table|markdown|toon prints them as a table").Rows("row").Quiet().Positional("path").
+		}, "the rows that match, as rows {noun: row, id: row/N (N the row in the file), data: {COLUMN: value, ...} in header order, cells}; filter, sort, pick columns and page with the options; --format table|markdown|toon prints them as a table").Rows("row").Fetch().Quiet().Positional("path").
 		Verb("columns", func(c ochazuke.Ctx) ochazuke.Result {
 			return pending(c, func(t *Table) (any, error) { return Columns(t), nil })
-		}, "the header: [{index, name, type}], type guessed from every value (empty, bool, int, float, date, string)").Quiet().Positional("path").
+		}, "the header: [{index, name, type}], type guessed from every value (empty, bool, int, float, date, string)").Fetch().Quiet().Positional("path").
 		Verb("stats", func(c ochazuke.Ctx) ochazuke.Result {
 			return pending(c, func(t *Table) (any, error) { return Summarize(t), nil })
-		}, "row and column counts, the delimiter, and per column: type guess, empty and distinct counts, min, max, widest value").Quiet().Positional("path")
+		}, "row and column counts, the delimiter, and per column: type guess, empty and distinct counts, min, max, widest value").Quiet().Positional("path").Fetch()
 	file := map[string]ochazuke.Parameter{
 		"path":      {Type: "string", Required: true, Description: "the CSV file; - reads stdin"},
 		"delim":     {Type: "string", Description: "field delimiter: one character, or auto, comma, tab, semicolon, pipe (default: the delimiter setting, auto)"},

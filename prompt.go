@@ -48,6 +48,9 @@ func (a *App) registerPrompt() {
 		Bind("enter", ochazuke.Do("field.commit")).
 		Bind("esc", ochazuke.Do("field.cancel")).
 		Bind("ctrl+o", ochazuke.Do("picker.open"))
+	// commit runs the question: the edit, rename or path it asked for.
+	setHistory(r, ochazuke.HistoryChange, "field.commit")
+	setHistory(r, ochazuke.HistoryAction, "field.cancel")
 	a.field = ochazuke.NewInput(fieldID, "", false)
 	a.m.ModalViews[promptFrame] = ochazuke.ModalView{Title: "Prompt", Render: func(r *ochazuke.Runtime, body *ochazuke.Instance, w, h int) ochazuke.Block {
 		field := ochazuke.InputBlock(a.field, max(1, w), 1)

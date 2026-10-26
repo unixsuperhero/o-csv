@@ -121,7 +121,7 @@ func (a *App) registerVerbs() {
 			}
 			return done(a.setEdit(on))
 		}), "Turn editing on or off (toggle); off, nothing writes the file").
-		Verb("state", verb(func(ochazuke.Context, ochazuke.Arguments) (any, error) { return a.state(), nil }), "The sheet's path, counts, cursor and view state")
+		Verb("state", verb(func(ochazuke.Context, ochazuke.Arguments) (any, error) { return a.state(), nil }), "The sheet's path, counts, cursor and view state").Fetch()
 	params("sheet.load", path)
 	params("sheet.open", path)
 	params("sheet.move", map[string]ochazuke.Parameter{
@@ -135,6 +135,9 @@ func (a *App) registerVerbs() {
 	})
 	params("sheet.search", map[string]ochazuke.Parameter{"query": {Type: "string", Description: "Omit to be asked in a prompt"}})
 	params("sheet.edit", map[string]ochazuke.Parameter{"on": {Type: "boolean", Description: "Omit to toggle"}})
+	setHistory(r, ochazuke.HistoryAction, "sheet.open", "sheet.move", "sheet.column", "sheet.search", "sheet.next", "sheet.previous", "sheet.clear", "sheet.unhide", "sheet.freeze", "sheet.edit")
+	// load reads the file and shows it: a fetch, as the framework's reloads are.
+	setHistory(r, ochazuke.HistoryFetch, "sheet.load")
 
 	colOf := func(c ochazuke.Context) (int, error) {
 		at := a.grid.At(c)
@@ -176,6 +179,9 @@ func (a *App) registerVerbs() {
 			return nil, a.focusFilter()
 		}), "Show only rows whose cell in this column contains the query (omit it to type one in the filter field); an empty query shows every row").When(grid.GuardInGrid)
 	params("column.filter", map[string]ochazuke.Parameter{"query": {Type: "string", Description: "Omit to type it in the filter field"}})
+	setHistory(r, ochazuke.HistoryAction, "column.hide", "column.filter")
+	// sort reorders the rows: view state read-only, a patch while editing.
+	setHistory(r, ochazuke.HistoryChange, "column.sort")
 
 	r.Define("row").
 		Verb("detail", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
@@ -201,6 +207,9 @@ func (a *App) registerVerbs() {
 			return a.copyText(c, "cell", a.Cell(at), ochazuke.StringArg(c.Args, "register", ""))
 		}, "Copy the cell's value into the registers and the system clipboard")
 	params("cell.yank", register)
+	setHistory(r, ochazuke.HistoryAction, "row.detail")
+	// A yank writes the registers and the clipboard, as input.yank does.
+	setHistory(r, ochazuke.HistoryChange, "row.yank", "cell.yank")
 
 	a.registerEditVerbs(verb, params, done)
 }
@@ -581,7 +590,10 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 	params("selection.transform", transformParams)
 
 	r.Define("transformations").
-		Verb("list", verb(func(ochazuke.Context, ochazuke.Arguments) (any, error) { return TransformationChoices(), nil }), "List the transformations transform accepts: ids with labels, the transform name's pick list")
+		Verb("list", verb(func(ochazuke.Context, ochazuke.Arguments) (any, error) { return TransformationChoices(), nil }), "List the transformations transform accepts: ids with labels, the transform name's pick list").Fetch()
+	setHistory(r, ochazuke.HistoryChange, "sheet.save", "sheet.saveAs", "sheet.addColumn", "sheet.undo", "sheet.redo",
+		"cell.edit", "cell.clear", "cell.paste", "cell.transform", "row.delete", "row.insertBelow", "row.duplicate",
+		"column.rename", "column.delete", "selection.yank", "selection.delete", "selection.paste", "selection.clear", "selection.transform")
 }
 
 func rowsOf(set []grid.Ref) []int {
@@ -608,4 +620,19 @@ func colsOf(set []grid.Ref) []int {
 	}
 	sort.Ints(out)
 	return out
+}
+
+// setHistory declares the history kind (Operation.HistoryKind) of each
+// named verb, so none is left to the default: NounBuilder.Fetch marks a
+// read where it is declared, and the builder has no method for a change or
+// an action. An unknown key panics, so a renamed verb is renamed here too.
+func setHistory(r *ochazuke.Runtime, kind string, keys ...string) {
+	for _, key := range keys {
+		op, ok := r.Operations[key]
+		if !ok {
+			panic("setHistory: no operation " + key)
+		}
+		op.HistoryKind = kind
+		r.Operations[key] = op
+	}
 }
