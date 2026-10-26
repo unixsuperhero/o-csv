@@ -13,6 +13,9 @@ func cli(t *testing.T, args ...string) []byte {
 	if err := Main(args, strings.NewReader(""), &out, &errOut); err != nil {
 		t.Fatalf("%v: %v\n%s", args, err, errOut.String())
 	}
+	if errOut.Len() > 0 {
+		t.Fatalf("%v wrote to stderr: %q", args, errOut.String())
+	}
 	return out.Bytes()
 }
 
@@ -70,6 +73,9 @@ func TestTableColumnsAndStats(t *testing.T) {
 	var errOut bytes.Buffer
 	if err := Main([]string{"table", "stats", "testdata/missing.csv"}, strings.NewReader(""), &bytes.Buffer{}, &errOut); err == nil {
 		t.Fatal("a missing file is not an error")
+	}
+	if !strings.Contains(errOut.String(), "table.stats failed") {
+		t.Fatalf("a failed job's line was dropped: %q", errOut.String())
 	}
 }
 

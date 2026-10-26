@@ -235,7 +235,21 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 	})
 	params("table.columns", nil)
 	params("table.stats", nil)
-	sh := ocli.New(r, "o-csv", stdin, stdout, stderr)
+	sh := ocli.New(r, "o-csv", stdin, stdout, quietJobs{stderr})
 	sh.Usage = ocli.DefaultUsage("o-csv")
 	return sh
+}
+
+// quietJobs is the shell's stderr minus its "job #N VERB done" lines.
+// ochazuke/cli's Shell.Run (cli/shell.go, v0.1.1 line 186) prints one per
+// job a command started, and every table verb is pending work; the
+// operation's Quiet flag does not reach that line. A failed job's line and
+// any prompt pass through.
+type quietJobs struct{ w io.Writer }
+
+func (q quietJobs) Write(p []byte) (int, error) {
+	if line := string(p); strings.HasPrefix(line, "job #") && strings.HasSuffix(line, " done\n") {
+		return len(p), nil
+	}
+	return q.w.Write(p)
 }
