@@ -24,39 +24,71 @@ func cli(t *testing.T, args ...string) []byte {
 	return out.Bytes()
 }
 
+// showRow is one row of table show's answer.
+type showRow struct {
+	Noun  string            `json:"noun"`
+	ID    string            `json:"id"`
+	Data  map[string]string `json:"data"`
+	Cells []string          `json:"cells"`
+}
+
 func TestTableShowJSON(t *testing.T) {
 	// A bare --json is accepted: the output is JSON either way.
 	out := cli(t, "table", "show", cities, "--json")
-	var res struct {
-		Columns []string            `json:"columns"`
-		Total   int                 `json:"total"`
-		Rows    []map[string]string `json:"rows"`
-	}
-	if err := json.Unmarshal(out, &res); err != nil {
+	var rows []showRow
+	if err := json.Unmarshal(out, &rows); err != nil {
 		t.Fatal(err, string(out))
 	}
-	if res.Total != 10 || len(res.Rows) != 10 || res.Columns[0] != "city" || res.Rows[5]["notes"] != `Banking, "chocolate", lakes` {
-		t.Fatalf("show: %+v", res)
+	if len(rows) != 10 || rows[0].Noun != "row" || rows[0].ID != "row/1" || rows[0].Cells[0] != "Tokyo" || rows[5].Data["notes"] != `Banking, "chocolate", lakes` {
+		t.Fatalf("show: %+v", rows)
 	}
-	// Rows keep the header's key order.
+	// Data keeps the header's key order.
 	if i, j := bytes.Index(out, []byte(`"city": "Tokyo"`)), bytes.Index(out, []byte(`"country": "Japan"`)); i < 0 || j < i {
 		t.Fatalf("key order:\n%s", out)
 	}
-	out = cli(t, "table", "show", cities, "--where", "country~peru", "--sort", "population", "--desc", "--columns", "city,population", "--limit", "1")
-	res.Rows = nil
-	if err := json.Unmarshal(out, &res); err != nil {
+	// A cut window says which rows it holds on stderr; ids stay file rows.
+	var stdout, stderr bytes.Buffer
+	args := []string{"table", "show", cities, "--where", "country~peru", "--sort", "population", "--desc", "--columns", "city,population", "--limit", "1"}
+	if err := Main(args, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatal(err, stderr.String())
+	}
+	rows = nil
+	if err := json.Unmarshal(stdout.Bytes(), &rows); err != nil {
 		t.Fatal(err)
 	}
-	if res.Total != 2 || len(res.Rows) != 1 || res.Rows[0]["city"] != "Lima" || len(res.Rows[0]) != 2 {
-		t.Fatalf("filtered show: %s", out)
+	if len(rows) != 1 || rows[0].Data["city"] != "Lima" || rows[0].ID != "row/4" || len(rows[0].Cells) != 2 || stderr.String() != "status: rows 1–1 of 2\n" {
+		t.Fatalf("filtered show: %s\nstderr %q", stdout.String(), stderr.String())
 	}
 	out = cli(t, "table", "show", "testdata/scores.tsv", "--search", "bo", "--no_header")
-	res.Rows = nil
-	if err := json.Unmarshal(out, &res); err != nil {
+	rows = nil
+	if err := json.Unmarshal(out, &rows); err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Rows) != 1 || res.Rows[0]["B"] != "bo" {
+	if len(rows) != 1 || rows[0].Data["B"] != "bo" {
 		t.Fatalf("no-header search: %s", out)
+	}
+}
+
+// --format prints table show's rows as the CSV's own table: the shown
+// columns over the cells, numbers right-aligned.
+func TestTableShowFormats(t *testing.T) {
+	want := map[string]string{
+		"table":    "city   population\nTokyo    13960000\nOsaka     2750000\n",
+		"markdown": "| city | population |\n| --- | ---: |\n| Tokyo | 13960000 |\n| Osaka | 2750000 |\n",
+		"toon":     "row[2]{city,population}:\n  Tokyo,13960000\n  Osaka,2750000\n",
+	}
+	for format, text := range want {
+		var stdout, stderr bytes.Buffer
+		if err := Main([]string{"table", "show", cities, "--columns", "city,population", "--limit", "2", "--format", format}, strings.NewReader(""), &stdout, &stderr); err != nil {
+			t.Fatal(err)
+		}
+		if stdout.String() != text {
+			t.Errorf("--format %s:\n%s\nwant\n%s", format, stdout.String(), text)
+		}
+	}
+	out := cli(t, "table", "columns", cities, "--format", "toon")
+	if !strings.HasPrefix(string(out), "[7]{index,name,type}:\n  0,city,string\n") {
+		t.Fatalf("columns --format toon:\n%s", out)
 	}
 }
 

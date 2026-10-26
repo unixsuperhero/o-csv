@@ -63,11 +63,11 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 
 ## Command line
 
-`o-csv table VERB FILE [--ARG VALUE]` reads the file in the process and prints JSON. `-` reads stdin. Every verb takes `--delim` and `--no_header`. The output is always JSON. `--json '{...}'` passes the arguments as JSON instead, and a bare `--json` is accepted and ignored.
+`o-csv table VERB FILE [--ARG VALUE]` reads the file in the process and prints JSON. `-` reads stdin. Every verb takes `--delim` and `--no_header`. `--format table|markdown|toon` prints the rows of `table show` (and `table columns`) as a table instead: `table show` draws the CSV's own columns, numbers right-aligned. `--json '{...}'` passes the arguments as JSON instead, and a bare `--json` is accepted and ignored.
 
 | Command | Prints |
 |---|---|
-| `o-csv table show FILE` | `{columns, total, offset, rows}`, where each row is an object keyed by column in header order. Options: `--columns a,b`, `--search TEXT`, `--where COL~TEXT`, `--sort COL [--desc]`, `--offset N`, `--limit N` |
+| `o-csv table show FILE` | the matching rows, each `{noun: "row", id: "row/N", data, cells}`: `N` is its row in the file (whatever the sort), `data` the row as an object keyed by column in header order, `cells` its values. When `--offset`/`--limit` leave rows out, stderr says `status: rows 11–20 of 250`. Options: `--columns a,b`, `--search TEXT`, `--where COL~TEXT`, `--sort COL [--desc]`, `--offset N`, `--limit N` |
 | `o-csv table columns FILE` | `[{index, name, type}]` |
 | `o-csv table stats FILE` | the row and column counts, the delimiter, and per column: the guessed type (empty, bool, int, float, date, string), empty and distinct counts, min, max, widest value |
 | `o-csv catalog` | the runtime catalog for a host that mounts the bin |

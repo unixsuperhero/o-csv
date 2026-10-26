@@ -16,8 +16,9 @@ import (
 
 // The command line is an ochazuke runtime with one noun, table, behind
 // ochazuke/cli (mounted in Main): o-csv table VERB FILE [--ARG VALUE] reads
-// the file in process and prints JSON, and o-csv catalog describes the
-// noun for a host that mounts the bin. Nothing here writes a file.
+// the file in process and prints JSON (or, with --format, a table), and
+// o-csv catalog describes the noun for a host that mounts the bin. Nothing
+// here writes a file.
 
 // Record is one row as a JSON object whose keys keep the header's order.
 type Record struct {
@@ -42,13 +43,15 @@ func (r Record) MarshalJSON() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// ShowResult is table show's answer: the header, how many rows matched
-// before the window, and the rows in it.
+// ShowResult is what Show selects: the header, how many rows matched
+// before the window, and the rows in it with their 1-based row numbers in
+// the file (Lines). table show answers it as rows (showRows).
 type ShowResult struct {
-	Columns []string `json:"columns"`
-	Total   int      `json:"total"`
-	Offset  int      `json:"offset"`
-	Rows    []Record `json:"rows"`
+	Columns []string
+	Total   int
+	Offset  int
+	Rows    []Record
+	Lines   []int
 }
 
 // ColumnInfo is one element of table columns.
@@ -84,11 +87,15 @@ func Show(t *Table, q ShowArgs) (ShowResult, error) {
 		}
 		return 0, fmt.Errorf("no column %q; table columns lists them", name)
 	}
-	rows := t.Rows
+	// rows are indexes into t.Rows, so each row keeps its file number.
+	rows := make([]int, len(t.Rows))
+	for i := range rows {
+		rows[i] = i
+	}
 	if q.Search != "" {
 		needle := strings.ToLower(q.Search)
-		rows = slices.DeleteFunc(slices.Clone(rows), func(row []string) bool {
-			return !slices.ContainsFunc(row, func(v string) bool { return strings.Contains(strings.ToLower(v), needle) })
+		rows = slices.DeleteFunc(rows, func(i int) bool {
+			return !slices.ContainsFunc(t.Rows[i], func(v string) bool { return strings.Contains(strings.ToLower(v), needle) })
 		})
 	}
 	if q.Where != "" {
@@ -101,19 +108,18 @@ func Show(t *Table, q ShowArgs) (ShowResult, error) {
 			return ShowResult{}, err
 		}
 		needle := strings.ToLower(text)
-		rows = slices.DeleteFunc(slices.Clone(rows), func(row []string) bool { return !strings.Contains(strings.ToLower(row[j]), needle) })
+		rows = slices.DeleteFunc(rows, func(i int) bool { return !strings.Contains(strings.ToLower(t.Rows[i][j]), needle) })
 	}
 	if q.Sort != "" {
 		j, err := index(q.Sort)
 		if err != nil {
 			return ShowResult{}, err
 		}
-		rows = slices.Clone(rows)
-		slices.SortStableFunc(rows, func(x, y []string) int {
+		slices.SortStableFunc(rows, func(x, y int) int {
 			if q.Desc {
-				return compareCells(y[j], x[j])
+				return compareCells(t.Rows[y][j], t.Rows[x][j])
 			}
-			return compareCells(x[j], y[j])
+			return compareCells(t.Rows[x][j], t.Rows[y][j])
 		})
 	}
 	keep := make([]int, 0, len(t.Header))
@@ -142,11 +148,43 @@ func Show(t *Table, q ShowArgs) (ShowResult, error) {
 	for _, row := range rows[from:to] {
 		values := make([]string, len(keep))
 		for i, j := range keep {
-			values[i] = row[j]
+			values[i] = t.Rows[row][j]
 		}
 		out.Rows = append(out.Rows, Record{Header: header, Values: values})
+		out.Lines = append(out.Lines, row+1)
 	}
 	return out, nil
+}
+
+// showRows is table show's answer: one row per selected CSV row, in the
+// family's row shape (ochazuke/cli's Row): noun row, id row/N (N its
+// 1-based row in the file, whatever the sort), data the row as an object
+// keyed by column in header order, cells its values in column order. The
+// cells over the row noun's columns (rowColumns) are what --format table,
+// markdown and toon print.
+func showRows(res ShowResult) []ocli.Row {
+	out := make([]ocli.Row, len(res.Rows))
+	for i, rec := range res.Rows {
+		out[i] = ocli.Row{Noun: "row", ID: fmt.Sprintf("row/%d", res.Lines[i]), Data: rec, Cells: rec.Values}
+	}
+	return out
+}
+
+// rowColumns are the columns of the row noun for a table show: one per
+// shown column, numbers (the type guess over the whole file) right-aligned.
+func rowColumns(t *Table, shown []string) []ochazuke.Column {
+	types := map[string]string{}
+	for _, c := range Columns(t) {
+		types[c.Name] = c.Type
+	}
+	cols := make([]ochazuke.Column, len(shown))
+	for i, name := range shown {
+		cols[i] = ochazuke.Column{Title: name}
+		if types[name] == TypeInt || types[name] == TypeFloat {
+			cols[i].Align = ochazuke.AlignRight
+		}
+	}
+	return cols
 }
 
 // Columns is table columns' answer: each column with its guessed type.
@@ -204,8 +242,29 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 				Sort: ochazuke.StringArg(c.Args, "sort", ""), Desc: desc,
 				Offset: ochazuke.IntArg(c.Args, "offset", 0), Limit: ochazuke.IntArg(c.Args, "limit", 0),
 			}
-			return pending(c, func(t *Table) (any, error) { return Show(t, q) })
-		}, "the rows as JSON objects keyed by column, in header order: {columns, total, offset, rows}; filter, sort, pick columns and page with the options").Quiet().Positional("path").
+			// The work reads the file off the loop; Then runs on the loop
+			// once it lands, before the shell prints. It gives the row noun
+			// this file's columns (they are known only once it is read)
+			// and says on the status line when the window cut rows.
+			var shown []ochazuke.Column
+			var res ShowResult
+			return pending(c, func(t *Table) (any, error) {
+				var err error
+				if res, err = Show(t, q); err != nil {
+					return nil, err
+				}
+				shown = rowColumns(t, res.Columns)
+				return showRows(res), nil
+			}).Then(func(c ochazuke.Ctx, _ any, err error) {
+				if err != nil {
+					return
+				}
+				r.Define("row").Columns(shown...)
+				if n := len(res.Rows); n < res.Total {
+					c.Status(fmt.Sprintf("rows %d–%d of %d", res.Offset+1, res.Offset+n, res.Total))
+				}
+			})
+		}, "the rows that match, as rows {noun: row, id: row/N (N the row in the file), data: {COLUMN: value, ...} in header order, cells}; filter, sort, pick columns and page with the options; --format table|markdown|toon prints them as a table").Rows("row").Quiet().Positional("path").
 		Verb("columns", func(c ochazuke.Ctx) ochazuke.Result {
 			return pending(c, func(t *Table) (any, error) { return Columns(t), nil })
 		}, "the header: [{index, name, type}], type guessed from every value (empty, bool, int, float, date, string)").Quiet().Positional("path").
@@ -226,7 +285,7 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 		for k, v := range extra {
 			op.Parameters[k] = v
 		}
-		op.Result = map[string]string{"table.show": "{columns, total, offset, rows}", "table.columns": "column[]", "table.stats": "stats"}[key]
+		op.Result = map[string]string{"table.show": "row[]", "table.columns": "column[]", "table.stats": "stats"}[key]
 		r.Operations[key] = op
 	}
 	params("table.show", map[string]ochazuke.Parameter{
