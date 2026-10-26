@@ -162,12 +162,15 @@ func Columns(t *Table) []ColumnInfo {
 // newShell is the NOUN VERB shell over a runtime holding the table noun.
 func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 	r := ochazuke.NewRuntime()
-	read := func(args ochazuke.Arguments) (*Table, error) {
+	if err := declareSettings(r); err != nil {
+		panic(err) // the declarations are constants; a test covers them
+	}
+	read := func(args ochazuke.Arguments, delim string) (*Table, error) {
 		path := ochazuke.StringArg(args, "path", "")
 		if path == "" {
 			return nil, errors.New("a file is required (- reads stdin)")
 		}
-		d, err := ParseDelim(ochazuke.StringArg(args, "delim", ""))
+		d, err := ParseDelim(ochazuke.StringArg(args, "delim", delim))
 		if err != nil {
 			return nil, err
 		}
@@ -179,9 +182,10 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 	// the job and prints its value; a failure also prints its
 	// "job #N table.VERB failed" line on stderr.
 	pending := func(c ochazuke.Ctx, fn func(*Table) (any, error)) ochazuke.Result {
-		args := c.Args
+		// The setting is read here, on the loop; the work runs off it.
+		args, delim := c.Args, r.Settings().String(settingDelimiter)
 		return ochazuke.Pending(func(context.Context) (any, error) {
-			t, err := read(args)
+			t, err := read(args, delim)
 			if err != nil {
 				return nil, err
 			}
@@ -210,7 +214,7 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 		}, "row and column counts, the delimiter, and per column: type guess, empty and distinct counts, min, max, widest value").Quiet().Positional("path")
 	file := map[string]ochazuke.Parameter{
 		"path":      {Type: "string", Required: true, Description: "the CSV file; - reads stdin"},
-		"delim":     {Type: "string", Description: "field delimiter: one character, or comma, tab, semicolon, pipe (default: detect)"},
+		"delim":     {Type: "string", Description: "field delimiter: one character, or auto, comma, tab, semicolon, pipe (default: the delimiter setting, auto)"},
 		"no_header": {Type: "boolean", Description: "the first line is data; columns are named A, B, C, ..."},
 	}
 	params := func(key string, extra map[string]ochazuke.Parameter) {

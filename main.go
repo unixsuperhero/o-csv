@@ -78,7 +78,7 @@ func isFile(path string) bool {
 func runTUI(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("o-csv", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	delim := flags.String("delim", "", "field delimiter: one character, or comma, tab, semicolon, pipe (default: detect)")
+	delim := flags.String("delim", "", "field delimiter: one character, or auto, comma, tab, semicolon, pipe (default: the delimiter setting, auto)")
 	noHeader := flags.Bool("no-header", false, "the first line is data; columns are named A, B, C, ...")
 	edit := flags.Bool("edit", false, "start with editing on (ctrl+e toggles it)")
 	smoke := flags.Bool("smoke", false, "render one frame to stdout and exit")
@@ -95,10 +95,6 @@ func runTUI(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		}
 		return &oden.ExitError{Code: 2}
 	}
-	d, err := ParseDelim(*delim)
-	if err != nil {
-		return err
-	}
 	path := ""
 	switch {
 	case len(words) > 1:
@@ -111,8 +107,15 @@ func runTUI(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		flags.Usage()
 		return &oden.ExitError{Code: 2}
 	}
-	a, err := New(Options{Delim: d, NoHeader: *noHeader}, *edit)
+	a, err := New(Options{NoHeader: *noHeader}, *edit)
 	if err != nil {
+		return err
+	}
+	// --delim wins; without it the delimiter setting applies (auto detects).
+	if *delim == "" {
+		*delim = a.r.Settings().String(settingDelimiter)
+	}
+	if a.Opts.Delim, err = ParseDelim(*delim); err != nil {
 		return err
 	}
 	if *smoke {
@@ -178,6 +181,14 @@ func New(opts Options, edit bool) (*App, error) {
 	a := &App{r: r, Opts: opts, Edit: edit, Hidden: map[int]bool{}}
 	a.m = ochazuke.NewModel(r)
 	a.m.Title = "o-csv"
+	if err := declareSettings(r); err != nil {
+		return nil, err
+	}
+	a.colCap = r.Settings().Int(settingColumnWidth)
+	r.Settings().Observe(settingColumnWidth, func(_ string, v any) {
+		a.colCap = v.(int)
+		a.measure()
+	})
 	// The sheet instance is registered first so the grid can sit under it;
 	// AddPage then adopts it as the page of the sheet noun.
 	r.Instance(pageID, ochazuke.Kind("sheet"))

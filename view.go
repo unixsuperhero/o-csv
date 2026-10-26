@@ -20,12 +20,9 @@ import (
 // widthSample is how many rows measure a column at load; edits widen it.
 const widthSample = 2000
 
-// Cell widths are clamped to [minCellWidth, maxCellWidth]; longer cells
-// are cut with "…".
-const (
-	minCellWidth = 3
-	maxCellWidth = 32
-)
+// Cell widths are at least minCellWidth and at most the column-width
+// setting (App.colCap); longer cells are cut with "…".
+const minCellWidth = 3
 
 // viewState is the scroll position of the last frame and what it showed.
 type viewState struct {
@@ -48,7 +45,7 @@ func (a *App) measure() {
 		}
 	}
 	for j := range a.widths {
-		a.widths[j] = min(max(a.widths[j], minCellWidth), maxCellWidth)
+		a.widths[j] = min(max(a.widths[j], minCellWidth), a.colCap)
 	}
 }
 
@@ -57,7 +54,7 @@ func (a *App) widen(j int, v string) {
 	if j < 0 || j >= len(a.widths) {
 		return
 	}
-	a.widths[j] = min(max(a.widths[j], ansi.StringWidth(v)), maxCellWidth)
+	a.widths[j] = min(max(a.widths[j], ansi.StringWidth(v)), a.colCap)
 }
 
 // showable lists the columns that are not hidden, in order.

@@ -47,6 +47,7 @@ type App struct {
 	clipNotice ochazuke.NoticeID
 
 	widths []int // display width per column, from the content (view.go)
+	colCap int   // the column-width setting: the widest a column grows
 	view   viewState
 
 	r        *ochazuke.Runtime

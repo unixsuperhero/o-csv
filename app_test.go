@@ -576,3 +576,22 @@ func TestLastColumnTakesTheRemainingWidth(t *testing.T) {
 		}
 	}
 }
+
+// The column-width setting caps every column, and a change applies at once.
+func TestColumnWidthSetting(t *testing.T) {
+	a := open(t, cities, false)
+	if got := a.widths[6]; got != 32 {
+		t.Fatalf("notes column %d wide, want the default cap 32", got)
+	}
+	if err := a.r.Settings().Set(settingColumnWidth, 10); err != nil {
+		t.Fatal(err)
+	}
+	for j, w := range a.widths {
+		if w > 10 {
+			t.Fatalf("column %d is %d wide under column-width 10", j, w)
+		}
+	}
+	if err := a.r.Settings().Set(settingColumnWidth, 1); err == nil {
+		t.Fatal("column-width 1 was accepted")
+	}
+}

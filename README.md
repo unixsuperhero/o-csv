@@ -14,7 +14,7 @@ Build: `go build -o ~/bin/o-csv .`
 
 ## The viewer
 
-The table fills the screen: a header row, then only the rows that fit on screen. That means a 100k-row file costs one screen per frame, and it loads off the event loop (`sheet.load` is pending work, and the screen says `loading …` while it runs). Each column is as wide as the widest of its first 2,000 values and of the rows drawn so far, capped at 32 cells. Longer cells are cut with `…`. On a narrow screen the columns scroll with the cursor, and the next column shows partly while there is room for it. The status line above the table shows the file, `read-only` or `EDIT`, `row N/M` (with `(of TOTAL)` while a filter is on), `col N/M NAME`, and the active sort, filter, search, frozen column and hidden-column count. The delimiter is guessed from the first 64 KiB, trying comma, tab, semicolon and pipe. `--delim` overrides it. With `--no-header`, the columns are named A, B, C, …
+The table fills the screen: a header row, then only the rows that fit on screen. That means a 100k-row file costs one screen per frame, and it loads off the event loop (`sheet.load` is pending work, and the screen says `loading …` while it runs). Each column is as wide as the widest of its first 2,000 values and of the rows drawn so far, capped at 32 cells (the `column-width` setting). Longer cells are cut with `…`. On a narrow screen the columns scroll with the cursor, and the next column shows partly while there is room for it. The status line above the table shows the file, `read-only` or `EDIT`, `row N/M` (with `(of TOTAL)` while a filter is on), `col N/M NAME`, and the active sort, filter, search, frozen column and hidden-column count. The delimiter is guessed from the first 64 KiB, trying comma, tab, semicolon and pipe. `--delim` (or the `delimiter` setting) overrides it. With `--no-header`, the columns are named A, B, C, …
 
 ### Keys
 
@@ -47,6 +47,17 @@ The table fills the screen: a header row, then only the rows that fit on screen.
 Editing is off by default. Start with `--edit` or press `ctrl+e` to toggle it. Leaving edit mode with unsaved edits is refused. While editing is off, every edit verb is guarded: its key does nothing, the palette does not offer it, and the sheet refuses it underneath. Nothing in a read-only session writes a file (`TestReadOnlyNeverWrites`).
 
 While editing is on, ochazuke's CSV example keys apply: `i` edit a cell, `x` clear, `p` paste, `d d` delete a row (it asks first), `o` insert a row, `r` rename a column, `D` delete a column, `+` add a column, `t u`/`t l`/`t t`/`t i`/`t s` transform, `v`/`V`/`ctrl+v` visual block, row and column selections, `u` / `ctrl+r` undo and redo, `ctrl+s` save. A save keeps the delimiter the file was read with. Every edit is one patch, and its inverse is the undo record. Sorting while editing is an undoable edit. Read-only, a sort only reorders the view.
+
+## Settings
+
+Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), declared as ochazuke settings, so the viewer and the command line read the same file:
+
+| Setting | Default | Does |
+|---|---|---|
+| `delimiter` | `auto` | the field delimiter when `--delim` is not given: `auto` (detect), `comma`, `tab`, `semicolon`, `pipe`, or one character |
+| `column-width` | `32` | the widest a column grows in the viewer, in cells (3 to 200) |
+
+`o-csv settings list`, `o-csv settings set column-width 24` and `o-csv settings reset delimiter` change them; in the viewer `: settings edit` opens the settings editor and a change applies at once. `o-csv config export` writes a reference of every setting and key row into `~/.config/o-csv/reference/`.
 
 ## Command line
 

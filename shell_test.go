@@ -2,9 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/unixsuperhero/ochazuke"
 )
 
 func cli(t *testing.T, args ...string) []byte {
@@ -103,5 +108,37 @@ func TestCatalogDescribesTheTableNoun(t *testing.T) {
 	}
 	if doc.Name != "o-csv" || !verbs["show"] || !verbs["columns"] || !verbs["stats"] {
 		t.Fatalf("catalog: %+v", doc)
+	}
+}
+
+// The delimiter setting is the default --delim of the table verbs, and
+// config export writes both settings.
+func TestSettingsReachTheCommandLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mixed.txt")
+	if err := os.WriteFile(path, []byte("a,b\tc\n1,2\t3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	sh := newShell(strings.NewReader(""), &out, &errOut)
+	if err := sh.Runtime.Settings().Set(settingDelimiter, "tab"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sh.Run(context.Background(), []string{"table", "columns", path}); err != nil {
+		t.Fatal(err, errOut.String())
+	}
+	var cols []ColumnInfo
+	if err := json.Unmarshal(out.Bytes(), &cols); err != nil || len(cols) != 2 || cols[0].Name != "a,b" {
+		t.Fatalf("columns with delimiter=tab: %v %s", err, out.String())
+	}
+	if err := sh.Runtime.Settings().Set(settingDelimiter, "two"); err == nil {
+		t.Fatal("a two-character delimiter was accepted")
+	}
+	dir := t.TempDir()
+	if _, err := sh.Runtime.ExportConfig(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ochazuke.SettingsReferenceFile))
+	if err != nil || !strings.Contains(string(data), `"delimiter"`) || !strings.Contains(string(data), `"column-width"`) {
+		t.Fatalf("settings reference: %v\n%s", err, data)
 	}
 }
