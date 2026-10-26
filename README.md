@@ -73,3 +73,24 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 | `o-csv catalog` | the runtime catalog for a host that mounts the bin |
 
 `o-csv help` lists the commands, and `o-csv table --help` lists the verbs and their parameters.
+
+## How o-csv is built (a reference app)
+
+o-csv is the family's reference for building an application on the current ochazuke (v0.6.0): a separate module that imports `github.com/unixsuperhero/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
+
+| Concept | Where | What to look at |
+|---|---|---|
+| The app owns its state | `app.go` | `App` holds the file, the view state and the undo stack; the runtime holds only interaction state, and instances carry ids, never data. `Patch` is the one edit shape, and its inverse is the undo record. |
+| Domain code without the framework | `sheet.go` | Reading, writing, delimiter detection, type guesses and stats are plain Go, tested on their own. |
+| Building the tree | `main.go` (`New`) | `NewRuntime`, an instance for the page, a component under it (`grid.New`), `AddDetail`, an input (`filter.go`), `AddPage`, `OpenPage`, `NewModel`. |
+| Nouns, verbs, guards, confirms | `verbs.go` | `Define(noun).Verb(verb, handler, description)`; `.When(guard)` hides and skips a verb (`DefineGuard("edit", …)`), `.Confirm("Delete row {{id}}?")` asks first, `.Motion()` keeps a verb off the footer. Handlers are `func(Ctx) Result` (`Done`, `Failed`, `Pending`). |
+| Binding rows as data | `bindings.go`, `filter.go` | Every key is a row: `Do("noun.verb", args)`, arguments from the key's payload (`FromPayload("steps", SourceCount)`), a pattern row for digits, mode tables that extend others, instance rows (`grid.WithInstanceRows`, `r.Bind`). No key-name switch anywhere; `TestBindingRowsAreAtomic` runs `ValidateBindings`. |
+| Work off the loop | `verbs.go` (`sheet.load`, `copyText`), `shell.go` | `Pending(work)` runs I/O as a job; `.Replacing("load")` lets a newer load cancel an older one; `.Then` runs on the loop when it lands. Reads are `.Quiet()` so they stay off the ticker. |
+| Telling the user | `verbs.go` (`copyText`), `app.go` (`saveTo`) | `ctx.Status("copied …")`, `ctx.Notify(…)` / `ctx.ClearNotice(id)` for a lasting problem, `r.UI().Status` where there is no `Ctx`. The TUI shows them in the footer; the CLI prints `status:` and `notice:` on stderr. |
+| A page detail | `detail.go` | `AddDetail(id, item)` and `Detail.Window`: the framework keeps the scroll offset, `J`/`K` scroll it while the focus stays in the grid, and a new item starts at the top. |
+| Resizable panes | `view.go` (`sheetView`) | `r.PaneLayout(page, layout)` and `Layout.Divide` make `>` `<` `=` move the divider, remembered per page; the sheet keeps its own rows off those keys. |
+| Settings | `settings.go` | `DeclareSetting` with a `Validate`, read with `Settings().String/Int`, followed with `Observe`. `settings list|set`, the settings editor and `config export` cover them. |
+| Modals | `prompt.go` | `OpenModal(kind, Payload, WithInput(in, Kind("field")))` for a one-line question; the noun pins insert mode, and `enter`/`esc` are rows on it. |
+| Drawing a component's view | `view.go` (`tableView`) | The grid owns the cursor and the visible rows; the app draws only the window and calls `Placed`/`PlacedAt`, so motions and scrolling follow the screen. |
+| The CLI and the catalog | `shell.go`, `main.go` (`Main`) | A second runtime with the `table` noun behind `ocli.New`, mounted on oden with `ocli.Mount`: parameters, `.Positional("path")`, `.Rows("row")`, rows in the `{noun, id, data, cells}` shape and the noun's columns, so `--format table|markdown|toon` work. `o-csv catalog` publishes it. |
+| Tests | `app_test.go`, `shell_test.go`, `keys_test.go` | Drive the `Model` with key names (`Press`, `runCmds` for jobs), run the CLI through `Main`, check the frame with `--smoke`. |
