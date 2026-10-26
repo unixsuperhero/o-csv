@@ -93,20 +93,25 @@ func (a *App) render(_ *ochazuke.Runtime, width, height int) ochazuke.Block {
 }
 
 // sheetView is the table, with the row detail beside it on a wide page
-// (the table keeps three fifths) or below it on a narrow one.
+// (the table keeps three fifths) or below it on a narrow one. The divider
+// is the page's: PaneLayout gives the layout the sheet page's remembered
+// shift, which > and < move and = resets (ochazuke's pane keys, which
+// answer only on a page whose last frame drew a split), and Divide applies
+// it, keeping each side PaneMinWidth (PaneMinHeight stacked).
 func (a *App) sheetView(width, height int) string {
 	if !a.ShowDetail {
 		return a.tableView(width, height)
 	}
+	layout := a.r.PaneLayout(pageID, ochazuke.Layout{})
 	if width >= splitWidth {
-		left := (width - 2) * 3 / 5
+		left := layout.Divide((width-2)*3/5, width-2, ochazuke.PaneMinWidth)
 		rule := strings.TrimSuffix(strings.Repeat(gutterStyle.Render("│")+" \n", height), "\n")
 		return lipgloss.JoinHorizontal(lipgloss.Top, a.tableView(left, height), rule, a.detailView(width-left-2, height))
 	}
-	top := max(1, height*3/5)
-	if height-top < 3 {
+	if height < 2*ochazuke.PaneMinHeight+1 {
 		return a.tableView(width, height)
 	}
+	top := layout.Divide(height*3/5, height-1, ochazuke.PaneMinHeight)
 	return a.tableView(width, top) + "\n" + gutterStyle.Render(strings.Repeat("─", width)) + "\n" + a.detailView(width, height-top-1)
 }
 

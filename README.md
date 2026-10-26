@@ -34,10 +34,11 @@ The table fills the screen: a header row, then only the rows that fit on screen.
 | `f` | filter rows by the cursor's column in the field below the table: `enter` applies it, `esc` or `tab` goes back |
 | `esc` | clear the search and the filter |
 | `s` | sort by the cursor's column: ascending, then descending, then back to file order. Numbers sort numerically and empty cells go last |
-| `-` / `=` | hide the cursor's column / show every column again |
+| `-` / `g =` | hide the cursor's column / show every column again |
 | `F` | freeze the first shown column at the left (toggle) |
 | `enter` | show or hide the row detail: every column of the cursor's row with its whole value, wrapped, beside the table (below it under 100 columns). It follows the cursor; the focus stays in the table |
 | `J` / `K` | scroll the row detail while it is longer than its pane (counts work: `5J`) |
+| `>` / `<` / `=` | while the detail shows: grow the table, shrink it, put the divider back (counts work: `3>`). The divider is remembered in `~/.local/state/o-csv/panes.json` |
 | `y` / `Y` | copy the cell / copy the row as one CSV line. The copy goes to the ochazuke registers (`"a y` names one) and to the system clipboard (pbcopy, wl-copy, xclip or xsel, whichever is on PATH) |
 | `ctrl+o` | open another file |
 | `:` | the command palette (every verb, including those without a key) |

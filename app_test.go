@@ -134,7 +134,7 @@ func TestHideFreezeAndHorizontalScroll(t *testing.T) {
 	if v := view(a); strings.Contains(v, "country") || !strings.Contains(v, "(1 hidden)") {
 		t.Fatalf("hidden column drawn:\n%s", v)
 	}
-	press(t, a, "=")
+	press(t, a, "g", "=")
 	if len(a.Hidden) != 0 {
 		t.Fatal("unhide kept columns hidden")
 	}
@@ -237,6 +237,37 @@ func TestRowDetail(t *testing.T) {
 	press(t, a, "enter")
 	if a.ShowDetail || strings.Contains(view(a), "row 2 of 10") {
 		t.Fatal("enter left the detail shown")
+	}
+}
+
+// > and < move the divider between the table and the detail, = puts it
+// back; they answer only while the page draws the split.
+func TestPaneKeysResizeTheDetail(t *testing.T) {
+	a := open(t, cities, false)
+	for _, size := range [][2]int{{120, 24}, {80, 30}} {
+		a.m.Width, a.m.Height = size[0], size[1]
+		view(a)
+		Press(a.m, ">")
+		if shift := a.r.PaneShift(pageID); shift != 0 {
+			t.Fatalf("%v: > moved a divider with no detail shown: %d", size, shift)
+		}
+		press(t, a, "enter")
+		view(a)
+		before := strings.Index(view(a), "row 1 of 10")
+		press(t, a, ">")
+		view(a)
+		if a.r.PaneShift(pageID) != ochazuke.PaneStep || strings.Index(view(a), "row 1 of 10") == before {
+			t.Fatalf("%v: > left the split where it was (shift %d)", size, a.r.PaneShift(pageID))
+		}
+		press(t, a, "2", "<")
+		if a.r.PaneShift(pageID) != -ochazuke.PaneStep {
+			t.Fatalf("%v: 2< shift %d", size, a.r.PaneShift(pageID))
+		}
+		press(t, a, "=")
+		if a.r.PaneShift(pageID) != 0 || len(a.Hidden) != 0 {
+			t.Fatalf("%v: = shift %d hidden %v", size, a.r.PaneShift(pageID), a.Hidden)
+		}
+		press(t, a, "enter")
 	}
 }
 

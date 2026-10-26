@@ -11,7 +11,10 @@ import (
 // toggles, editing and saving. Edit rows are guarded (verbs.go): read-only
 // they do not answer, so their keys are free and the footer leaves them
 // out. Counts reach the motions through count_pending, which is exclusive,
-// so the cell's count_pending extends its normal table.
+// so the cell's count_pending extends its normal table. > < and = are
+// ochazuke's pane keys (rows on the app noun) that resize the table and the
+// row detail while both show; an inner row on them would shadow them, so
+// the sheet keeps off them (unhide is g =).
 func (a *App) bind() {
 	r := a.r
 	move := func(motion string) ochazuke.Binding {
@@ -89,7 +92,7 @@ func (a *App) bind() {
 		Pattern("digit-0", ochazuke.Enter("count_pending").FromPayload("count", ochazuke.SourceDigit))
 
 	r.Define("sheet").Mode("normal").
-		Bind("=", ochazuke.Do("sheet.unhide")).
+		Bind("g =", ochazuke.Do("sheet.unhide")).
 		Bind("F", ochazuke.Do("sheet.freeze")).
 		Bind("esc", ochazuke.Do("sheet.clear")).
 		Bind("ctrl+e", ochazuke.Do("sheet.edit")).
