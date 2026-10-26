@@ -643,83 +643,24 @@ func TestColumnWidthSetting(t *testing.T) {
 	}
 }
 
-// . after a yank yanks again at the cursor: the repeat keeps only the
-// register, so it copies the new cell or row, never the old value.
-func TestDotRepeatsAYankAtTheCursor(t *testing.T) {
+// . never repeats a yank, as in Vim: y j . copies nothing.
+func TestDotNeverRepeatsAYank(t *testing.T) {
 	a := open(t, cities, false)
 	var clip []string
 	a.Clipboard = func(s string) error { clip = append(clip, s); return nil }
-	key := func(k string) {
-		t.Helper()
+	for _, k := range []string{"y", "j"} {
 		runCmds(a, Press(a.m, k))
-		if s := a.m.Status; s != "" && !strings.HasPrefix(s, "copied ") {
-			t.Fatalf("key %q: %s", k, s)
-		}
 	}
-	for _, k := range []string{"y", "j", "."} {
-		key(k)
+	if s := pressErr(a, "."); s != "nothing to repeat" {
+		t.Fatalf("y j .: status %q", s)
 	}
-	if y, _ := a.r.ReadYank(""); y.Text != "Osaka" || fmt.Sprint(clip) != "[Tokyo Osaka]" {
+	if y, _ := a.r.ReadYank(""); y.Text != "Tokyo" || fmt.Sprint(clip) != "[Tokyo]" {
 		t.Fatalf("y j .: register %q, clipboard %q", y.Text, clip)
 	}
-	for _, k := range []string{"Y", "j", "."} {
-		key(k)
+	for _, k := range []string{"Y", "j"} {
+		runCmds(a, Press(a.m, k))
 	}
-	if y, _ := a.r.ReadYank(""); !strings.HasPrefix(y.Text, "Lagos,Nigeria,") || len(clip) != 4 || !strings.HasPrefix(clip[3], "Lagos,Nigeria,") {
-		t.Fatalf("Y j .: register %q, clipboard %q", y.Text, clip)
-	}
-	// A counted motion between yank and repeat; the repeat records no value.
-	for _, k := range []string{"l", "y", "2", "j", "."} {
-		key(k)
-	}
-	if y, _ := a.r.ReadYank(""); y.Text != "Norway" {
-		t.Fatalf("y 2j .: register %q", y.Text)
-	}
-	for _, e := range a.r.HistoryOf(0, ochazuke.HistoryChange) {
-		if k := e.Request.Key(); (k == "cell.yank" || k == "row.yank") && len(e.Request.Args) != 0 {
-			t.Fatalf("%s recorded arguments %v", k, e.Request.Args)
-		}
-	}
-}
-
-// A selection yank ends the selection, so its repeat finds none: the
-// selecting guard refuses it and the register keeps the yank.
-func TestDotAfterASelectionYankFailsCleanly(t *testing.T) {
-	a := open(t, cities, true)
-	press(t, a, "V", "j", "y")
-	if y, _ := a.r.ReadYank(""); y.Shape != "line" || !strings.HasPrefix(y.Text, "Tokyo\tJapan") {
-		t.Fatalf("V j y: %+v", y)
-	}
-	press(t, a, "j")
-	if s := pressErr(a, "."); s != "selection.yank is not applicable now" {
-		t.Fatalf("j .: status %q", s)
-	}
-	if y, _ := a.r.ReadYank(""); y.Shape != "line" || !strings.HasPrefix(y.Text, "Tokyo\tJapan") || a.grid.Shape() != "" {
-		t.Fatalf("after the refused repeat: %+v, shape %q", y, a.grid.Shape())
-	}
-}
-
-// Dot repeats the last repeatable change: after a yank and an edit in the
-// filter field, the edit; after another yank, the yank.
-func TestDotRepeatsTheLastChange(t *testing.T) {
-	a := open(t, cities, false)
-	press(t, a, "y", "tab")
-	if a.r.Focus != filterID {
-		t.Fatalf("tab: focus %s", a.r.Focus)
-	}
-	for _, q := range []ochazuke.Request{{Noun: "input", Verb: "insert", Args: ochazuke.Arguments{"text": "o"}}, {Noun: "history", Verb: "repeat"}} {
-		if _, err := a.r.Execute(q); err != nil {
-			t.Fatalf("%s: %v", q.Key(), err)
-		}
-	}
-	if got := string(a.filterIn.Text); got != "oo" {
-		t.Fatalf("the repeat after an insert: field %q", got)
-	}
-	if y, _ := a.r.ReadYank(""); y.Text != "Tokyo" {
-		t.Fatalf("the repeat after an insert yanked: %q", y.Text)
-	}
-	press(t, a, "esc", "j", "y", "j", ".")
-	if y, _ := a.r.ReadYank(""); y.Text != "Lagos" || string(a.filterIn.Text) != "oo" {
-		t.Fatalf("y j .: register %q, field %q", y.Text, a.filterIn.Text)
+	if s := pressErr(a, "."); s != "nothing to repeat" || len(clip) != 2 {
+		t.Fatalf("Y j .: status %q, clipboard %q", s, clip)
 	}
 }

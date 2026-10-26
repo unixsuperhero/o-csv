@@ -210,8 +210,6 @@ func (a *App) registerVerbs() {
 	setHistory(r, ochazuke.HistoryAction, "row.detail")
 	// A yank writes the registers and the clipboard, as input.yank does.
 	setHistory(r, ochazuke.HistoryChange, "row.yank", "cell.yank")
-	// . yanks again at the cursor: the repeat keeps only the register.
-	setRepeatable(r, "row.yank", "cell.yank")
 
 	a.registerEditVerbs(verb, params, done)
 }
@@ -596,9 +594,6 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 	setHistory(r, ochazuke.HistoryChange, "sheet.save", "sheet.saveAs", "sheet.addColumn", "sheet.undo", "sheet.redo",
 		"cell.edit", "cell.clear", "cell.paste", "cell.transform", "row.delete", "row.insertBelow", "row.duplicate",
 		"column.rename", "column.delete", "selection.yank", "selection.delete", "selection.paste", "selection.clear", "selection.transform")
-	// The yank ends the selection, so its repeat has none to yank: the
-	// selecting guard refuses it ("selection.yank is not applicable now").
-	setRepeatable(r, "selection.yank")
 }
 
 func rowsOf(set []grid.Ref) []int {
@@ -638,20 +633,6 @@ func setHistory(r *ochazuke.Runtime, kind string, keys ...string) {
 			panic("setHistory: no operation " + key)
 		}
 		op.HistoryKind = kind
-		r.Operations[key] = op
-	}
-}
-
-// setRepeatable marks each named verb Operation.Repeatable, so dot-repeat
-// (history.repeat, .) runs it again at the current focus. The builder has
-// no method for it either; an unknown key panics, as in setHistory.
-func setRepeatable(r *ochazuke.Runtime, keys ...string) {
-	for _, key := range keys {
-		op, ok := r.Operations[key]
-		if !ok {
-			panic("setRepeatable: no operation " + key)
-		}
-		op.Repeatable = true
 		r.Operations[key] = op
 	}
 }
