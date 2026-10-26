@@ -127,6 +127,13 @@ func (a *App) tableView(width, height int) string {
 	} else if vrow >= v.offRow+body {
 		v.offRow = vrow - body + 1
 	}
+	// The first rows measured the columns at load; rows drawn later widen
+	// them (never narrow), so a column fits what the screen has shown.
+	for _, row := range visible[v.offRow:min(len(visible), v.offRow+body)] {
+		for j, value := range a.Rows[row] {
+			a.widen(j, value)
+		}
+	}
 	gutter := len(strconv.Itoa(len(a.Rows))) + 1
 	avail := width - gutter
 	shown := a.showable()
@@ -241,27 +248,32 @@ func (a *App) status() string {
 	if a.Dirty {
 		parts[0] += " [+]"
 	}
+	parts = append(parts, a.modeWord())
 	if a.Loading != "" || len(a.Header) == 0 {
-		return strings.Join(append(parts, a.modeWord()), " · ")
+		return strings.Join(parts, " · ")
 	}
 	g := a.grid
 	vrow, col := g.Position()
 	shown := len(a.showable())
-	rows := fmt.Sprintf("%s rows × %d cols", count(len(a.Rows)), len(a.Header))
-	if hidden := len(a.Header) - shown; hidden > 0 {
-		rows += fmt.Sprintf(" (%d hidden)", hidden)
-	}
-	parts = append(parts, rows)
 	if g.VisibleCount() > 0 {
-		parts = append(parts, fmt.Sprintf("row %s/%s · col %d/%d %s", count(vrow+1), count(g.VisibleCount()), col+1, len(a.Header), a.columnName(col)))
+		where := fmt.Sprintf("row %s/%s", count(vrow+1), count(g.VisibleCount()))
+		if g.VisibleCount() != len(a.Rows) {
+			where += fmt.Sprintf(" (of %s)", count(len(a.Rows)))
+		}
+		parts = append(parts, where)
 	} else {
-		parts = append(parts, "no rows")
+		parts = append(parts, fmt.Sprintf("no rows (of %s)", count(len(a.Rows))))
 	}
+	cols := fmt.Sprintf("col %d/%d %s", col+1, len(a.Header), a.columnName(col))
+	if hidden := len(a.Header) - shown; hidden > 0 {
+		cols += fmt.Sprintf(" (%d hidden)", hidden)
+	}
+	parts = append(parts, cols)
 	if a.Sort.On {
 		parts = append(parts, "sort "+a.columnName(a.Sort.Col)+map[bool]string{false: " ▲", true: " ▼"}[a.Sort.Desc])
 	}
 	if a.Filter.Query != "" {
-		parts = append(parts, fmt.Sprintf("filter %s~%q (%s shown)", a.columnName(a.Filter.Col), a.Filter.Query, count(g.VisibleCount())))
+		parts = append(parts, fmt.Sprintf("filter %s~%q", a.columnName(a.Filter.Col), a.Filter.Query))
 	}
 	if a.Search != "" {
 		parts = append(parts, "/"+a.Search)
@@ -272,7 +284,7 @@ func (a *App) status() string {
 	if marks := g.Marks(); len(marks) > 0 {
 		parts = append(parts, fmt.Sprintf("%d marked", len(marks)))
 	}
-	return strings.Join(append(parts, a.modeWord()), " · ")
+	return strings.Join(parts, " · ")
 }
 
 func (a *App) modeWord() string {

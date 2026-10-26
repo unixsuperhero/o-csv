@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 
@@ -422,6 +423,9 @@ func (a *App) describe() string {
 		return "(stdin)"
 	case a.Path == "":
 		return "(no file)"
+	}
+	if len(a.Path) > 40 {
+		return filepath.Base(a.Path)
 	}
 	return a.Path
 }
