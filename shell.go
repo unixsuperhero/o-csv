@@ -200,13 +200,13 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 				Offset: ochazuke.IntArg(c.Args, "offset", 0), Limit: ochazuke.IntArg(c.Args, "limit", 0),
 			}
 			return pending(c, func(t *Table) (any, error) { return Show(t, q) })
-		}, "the rows as JSON objects keyed by column, in header order: {columns, total, offset, rows}; filter, sort, pick columns and page with the options").Positional("path").
+		}, "the rows as JSON objects keyed by column, in header order: {columns, total, offset, rows}; filter, sort, pick columns and page with the options").Quiet().Positional("path").
 		Verb("columns", func(c ochazuke.Ctx) ochazuke.Result {
 			return pending(c, func(t *Table) (any, error) { return Columns(t), nil })
-		}, "the header: [{index, name, type}], type guessed from every value (empty, bool, int, float, date, string)").Positional("path").
+		}, "the header: [{index, name, type}], type guessed from every value (empty, bool, int, float, date, string)").Quiet().Positional("path").
 		Verb("stats", func(c ochazuke.Ctx) ochazuke.Result {
 			return pending(c, func(t *Table) (any, error) { return Summarize(t), nil })
-		}, "row and column counts, the delimiter, and per column: type guess, empty and distinct counts, min, max, widest value").Positional("path")
+		}, "row and column counts, the delimiter, and per column: type guess, empty and distinct counts, min, max, widest value").Quiet().Positional("path")
 	file := map[string]ochazuke.Parameter{
 		"path":      {Type: "string", Required: true, Description: "the CSV file; - reads stdin"},
 		"delim":     {Type: "string", Description: "field delimiter: one character, or comma, tab, semicolon, pipe (default: detect)"},
@@ -235,21 +235,7 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 	})
 	params("table.columns", nil)
 	params("table.stats", nil)
-	sh := ocli.New(r, "o-csv", stdin, stdout, quietJobs{stderr})
+	sh := ocli.New(r, "o-csv", stdin, stdout, stderr)
 	sh.Usage = ocli.DefaultUsage("o-csv")
 	return sh
-}
-
-// quietJobs is the shell's stderr minus its "job #N VERB done" lines.
-// ochazuke/cli's Shell.Run (cli/shell.go, v0.1.1 line 186) prints one per
-// job a command started, and every table verb is pending work; the
-// operation's Quiet flag does not reach that line. A failed job's line and
-// any prompt pass through.
-type quietJobs struct{ w io.Writer }
-
-func (q quietJobs) Write(p []byte) (int, error) {
-	if line := string(p); strings.HasPrefix(line, "job #") && strings.HasSuffix(line, " done\n") {
-		return len(p), nil
-	}
-	return q.w.Write(p)
 }
