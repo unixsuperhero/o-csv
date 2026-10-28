@@ -357,7 +357,7 @@ func (a *App) copyText(c ochazuke.Ctx, what, text, register string) ochazuke.Res
 	copied := fmt.Sprintf("copied the %s (%s characters)", what, count(len([]rune(text))))
 	clip := a.Clipboard
 	if clip == nil {
-		c.Status(copied + " to the registers")
+		c.Info(copied + " to the registers")
 		return ochazuke.Done(y)
 	}
 	return ochazuke.Pending(func(context.Context) (any, error) { return y, clip(text) }).
@@ -368,7 +368,7 @@ func (a *App) copyText(c ochazuke.Ctx, what, text, register string) ochazuke.Res
 				a.clipNotice = c.Notify("clipboard: " + err.Error() + " (copies still reach the registers)")
 				return
 			}
-			c.Status(copied)
+			c.Info(copied)
 		})
 }
 

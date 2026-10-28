@@ -7,7 +7,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/charmbracelet/x/term v0.2.2
-	github.com/unixsuperhero/ochazuke v0.28.0
+	github.com/unixsuperhero/ochazuke v0.31.0
 	github.com/unixsuperhero/oden v0.1.1
 )
 

@@ -76,7 +76,7 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 
 ## How o-csv is built (a reference app)
 
-o-csv is the family's reference for building an application on the current ochazuke (v0.28.0): a separate module that imports `github.com/unixsuperhero/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
+o-csv is the family's reference for building an application on the current ochazuke (v0.31.0): a separate module that imports `github.com/unixsuperhero/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
 
 | Concept | Where | What to look at |
 |---|---|---|
@@ -86,7 +86,7 @@ o-csv is the family's reference for building an application on the current ochaz
 | Nouns, verbs, guards, confirms | `verbs.go` | `Define(noun).Verb(verb, handler, description)`; `.When(guard)` hides and skips a verb (`DefineGuard("edit", …)`), `.Confirm("Delete row {{id}}?")` asks first, `.Motion()` keeps a verb off the footer. Every verb declares its history kind: `.Fetch()` on a read (`sheet.state`, the `table` verbs), `setHistory(r, ochazuke.HistoryChange|HistoryAction, keys...)` for edits and view moves, so none falls to the default (`history_test.go`). `setRepeatable` marks the yanks `Operation.Repeatable`, so `.` repeats them. Handlers are `func(Ctx) Result` (`Done`, `Failed`, `Pending`). |
 | Binding rows as data | `bindings.go`, `filter.go` | Every key is a row: `Do("noun.verb", args)`, arguments from the key's payload (`FromPayload("steps", SourceCount)`), a pattern row for digits, mode tables that extend others, instance rows (`grid.WithInstanceRows`, `r.Bind`). No key-name switch anywhere; `TestBindingRowsAreAtomic` runs `ValidateBindings`. |
 | Work off the loop | `verbs.go` (`sheet.load`, `copyText`), `shell.go` | `Pending(work)` runs I/O as a job; `.Replacing("load")` lets a newer load cancel an older one; `.Then` runs on the loop when it lands. Reads are `.Quiet()` so they stay off the ticker. |
-| Telling the user | `verbs.go` (`copyText`), `app.go` (`saveTo`) | `ctx.Status("copied …")`, `ctx.Notify(…)` / `ctx.ClearNotice(id)` for a lasting problem, `r.UI().Status` where there is no `Ctx`. The TUI shows them in the footer; the CLI prints `status:` and `notice:` on stderr. |
+| Telling the user | `verbs.go` (`copyText`), `app.go` (`saveTo`) | `ctx.Info("copied …")` for a plain message, `ctx.Status` (the error tone) for a failure, `ctx.Notify(…)` / `ctx.ClearNotice(id)` for a lasting problem, `r.UI().Info` where there is no `Ctx`. The TUI shows them in the footer; the CLI prints `status:` (plain), `error:` and `notice:` on stderr. |
 | A page detail | `detail.go` | `AddDetail(id, item)` and `Detail.Window`: the framework keeps the scroll offset, `J`/`K` scroll it while the focus stays in the grid, and a new item starts at the top. |
 | Resizable panes | `view.go` (`sheetView`) | `r.PaneLayout(page, layout)` and `Layout.Divide` make `>` `<` `=` move the divider, remembered per page; the sheet keeps its own rows off those keys. |
 | Settings | `settings.go` | `DeclareSetting` with a `Validate`, read with `Settings().String/Int`, followed with `Observe`. `settings list|set`, the settings editor and `config export` cover them. |

@@ -341,12 +341,12 @@ func (a *App) Save(path string) error {
 
 // saveTo is Save with a status line saying what was written. A prompt's
 // commit runs it too, and a commit has no Ctx of the verb that asked, so
-// it posts through the runtime's UI (what ctx.Status does underneath).
+// it posts through the runtime's UI (what ctx.Info does underneath).
 func (a *App) saveTo(path string) error {
 	if err := a.Save(path); err != nil {
 		return err
 	}
-	a.r.UI().Status(fmt.Sprintf("wrote %s rows to %s", count(len(a.Rows)), a.describe()))
+	a.r.UI().Info(fmt.Sprintf("wrote %s rows to %s", count(len(a.Rows)), a.describe()))
 	return nil
 }
 

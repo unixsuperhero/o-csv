@@ -39,13 +39,13 @@ func open(t *testing.T, path string, edit bool) *App {
 func view(a *App) string { return ansi.Strip(a.m.View().Content) }
 
 // press sends keys one by one, failing on the first error the model shows.
-// The status line also carries what a verb reports (ctx.Status: "copied
-// …", "wrote …"); those are not errors.
+// What a verb reports ("copied …", "wrote …") is the plain tone
+// (ctx.Info, Model.Info), never Status.
 func press(t *testing.T, a *App, keys ...string) {
 	t.Helper()
 	for _, key := range keys {
 		Press(a.m, key)
-		if s := a.m.Status; s != "" && !strings.HasPrefix(s, "copied ") && !strings.HasPrefix(s, "wrote ") {
+		if s := a.m.Status; s != "" {
 			t.Fatalf("key %q: %s", key, s)
 		}
 	}
@@ -336,8 +336,11 @@ func TestCopyReportsThroughTheUI(t *testing.T) {
 		runCmds(a, Press(a.m, key))
 	}
 	settle("y")
-	if a.m.Status != "copied the cell (5 characters) to the registers" {
-		t.Fatalf("status without a clipboard: %q", a.m.Status)
+	if a.m.Info != "copied the cell (5 characters) to the registers" || a.m.Status != "" {
+		t.Fatalf("status without a clipboard: info %q, error %q", a.m.Info, a.m.Status)
+	}
+	if v := view(a); !strings.Contains(v, "copied the cell") || strings.Contains(v, "Error:") {
+		t.Fatalf("a copy reads as an error:\n%s", v)
 	}
 	a.Clipboard = func(string) error { return errors.New("pbcopy: broken pipe") }
 	settle("y")
@@ -346,8 +349,8 @@ func TestCopyReportsThroughTheUI(t *testing.T) {
 	}
 	a.Clipboard = func(string) error { return nil }
 	settle("Y")
-	if len(a.m.Notices) != 0 || !strings.HasPrefix(a.m.Status, "copied the row (") {
-		t.Fatalf("after a good copy: notices %q, status %q", a.m.Notices, a.m.Status)
+	if len(a.m.Notices) != 0 || !strings.HasPrefix(a.m.Info, "copied the row (") || a.m.Status != "" {
+		t.Fatalf("after a good copy: notices %q, info %q, error %q", a.m.Notices, a.m.Info, a.m.Status)
 	}
 }
 
@@ -433,8 +436,8 @@ func TestEditModeEditsUndoesAndSaves(t *testing.T) {
 	if a.Dirty {
 		t.Fatal("still dirty after save")
 	}
-	if !strings.HasPrefix(a.m.Status, "wrote 9 rows to ") {
-		t.Fatalf("save status %q", a.m.Status)
+	if !strings.HasPrefix(a.m.Info, "wrote 9 rows to ") || a.m.Status != "" {
+		t.Fatalf("save status: info %q, error %q", a.m.Info, a.m.Status)
 	}
 	tab, err := ReadFile(path, Options{})
 	if err != nil || len(tab.Rows) != 9 || tab.Rows[0][0] != "Edo" || tab.Rows[4][6] != `Banking, "chocolate", lakes` {
@@ -652,7 +655,7 @@ func TestDotRepeatsAYankAtTheCursor(t *testing.T) {
 	key := func(k string) {
 		t.Helper()
 		runCmds(a, Press(a.m, k))
-		if s := a.m.Status; s != "" && !strings.HasPrefix(s, "copied ") {
+		if s := a.m.Status; s != "" {
 			t.Fatalf("key %q: %s", k, s)
 		}
 	}

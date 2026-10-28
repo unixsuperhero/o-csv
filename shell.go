@@ -261,7 +261,7 @@ func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
 				}
 				r.Define("row").Columns(shown...)
 				if n := len(res.Rows); n < res.Total {
-					c.Status(fmt.Sprintf("rows %d–%d of %d", res.Offset+1, res.Offset+n, res.Total))
+					c.Info(fmt.Sprintf("rows %d–%d of %d", res.Offset+1, res.Offset+n, res.Total))
 				}
 			})
 		}, "the rows that match, as rows {noun: row, id: row/N (N the row in the file), data: {COLUMN: value, ...} in header order, cells}; filter, sort, pick columns and page with the options; --format table|markdown|toon prints them as a table").Rows("row").Fetch().Quiet().Positional("path").
