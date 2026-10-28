@@ -159,13 +159,22 @@ func (a *App) tableView(width, height int) string {
 			a.widen(j, value)
 		}
 	}
+	// A column given a width (z >, z <; z = clears them) is drawn at it,
+	// past the column-width cap; the rest keep their measured width.
+	given := g.ColumnWidths()
+	colWidth := func(j int) int {
+		if w, ok := given[j]; ok {
+			return w
+		}
+		return a.widths[j]
+	}
 	gutter := len(strconv.Itoa(len(a.Rows))) + 1
 	avail := width - gutter
 	shown := a.showable()
 	frozen := -1
 	if a.Freeze && len(shown) > 1 {
 		frozen, shown = shown[0], shown[1:]
-		avail -= a.widths[frozen] + 1
+		avail -= colWidth(frozen) + 1
 	}
 	v.scrolled = len(shown)
 	// Horizontal window over the scrolling columns, keeping the cursor
@@ -181,12 +190,12 @@ func (a *App) tableView(width, height int) string {
 		if at < v.offCol {
 			v.offCol = at
 		}
-		for v.offCol < at && a.span(shown, v.offCol, at) > avail {
+		for v.offCol < at && span(colWidth, shown, v.offCol, at) > avail {
 			v.offCol++
 		}
 	}
 	last := v.offCol
-	for last+1 < len(shown) && a.span(shown, v.offCol, last+1) <= avail {
+	for last+1 < len(shown) && span(colWidth, shown, v.offCol, last+1) <= avail {
 		last++
 	}
 	cols := []int{}
@@ -197,7 +206,7 @@ func (a *App) tableView(width, height int) string {
 		cols = append(cols, shown[v.offCol:last+1]...)
 		// A next column that does not fit whole is shown cut while there
 		// is room for a few cells of it.
-		if last+1 < len(shown) && avail-a.span(shown, v.offCol, last) >= 5 {
+		if last+1 < len(shown) && avail-span(colWidth, shown, v.offCol, last) >= 5 {
 			cols = append(cols, shown[last+1])
 		}
 	}
@@ -205,8 +214,8 @@ func (a *App) tableView(width, height int) string {
 	widths := make([]int, len(cols))
 	room := width - gutter
 	for i, j := range cols {
-		widths[i] = min(a.widths[j], max(1, room-1))
-		if i == len(cols)-1 {
+		widths[i] = min(colWidth(j), max(1, room-1))
+		if _, ok := given[j]; !ok && i == len(cols)-1 {
 			// The last column takes the rest of the line instead of
 			// stopping at the width cap while the line has room.
 			widths[i] = max(1, room-1)
@@ -263,10 +272,10 @@ func (a *App) tableView(width, height int) string {
 }
 
 // span is the width of shown[from..to] with one space before each column.
-func (a *App) span(shown []int, from, to int) int {
+func span(colWidth func(int) int, shown []int, from, to int) int {
 	total := 0
 	for i := from; i <= to; i++ {
-		total += a.widths[shown[i]] + 1
+		total += colWidth(shown[i]) + 1
 	}
 	return total
 }

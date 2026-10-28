@@ -187,6 +187,9 @@ func New(opts Options, edit bool) (*App, error) {
 	a.colCap = r.Settings().Int(settingColumnWidth)
 	r.Settings().Observe(settingColumnWidth, func(_ string, v any) {
 		a.colCap = v.(int)
+		if a.grid != nil {
+			a.grid.MaxCellWidth = a.colCap
+		}
 		a.measure()
 	})
 	// The sheet instance is registered first so the grid can sit under it;
@@ -197,6 +200,9 @@ func New(opts Options, edit bool) (*App, error) {
 		return nil, err
 	}
 	a.grid = g
+	// z > and z < step from the grid's automatic width; capping it as the
+	// view caps a column keeps the first step close to the drawn width.
+	g.MaxCellWidth = a.colCap
 	a.registerPrompt()
 	a.registerVerbs()
 	if err := a.registerDetail(); err != nil {

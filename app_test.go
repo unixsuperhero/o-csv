@@ -723,3 +723,31 @@ func TestDotRepeatsTheLastChange(t *testing.T) {
 		t.Fatalf("y j .: register %q, field %q", y.Text, a.filterIn.Text)
 	}
 }
+
+// z > and z < give the cursor's column a width the view draws (past the
+// column-width cap), and z = makes every column automatic again.
+func TestWidthKeysResizeTheDrawnColumn(t *testing.T) {
+	a := open(t, cities, false)
+	second := func() int {
+		for _, line := range strings.Split(view(a), "\n") {
+			if strings.Contains(line, a.Header[0]+" ") && strings.Contains(line, a.Header[1]) {
+				return strings.Index(line, a.Header[1])
+			}
+		}
+		t.Fatalf("no header line:\n%s", view(a))
+		return 0
+	}
+	before := second()
+	press(t, a, "z", ">", "z", ">")
+	if got := second(); got != before+2*grid.ColumnWidthStep {
+		t.Fatalf("z > twice: second column at %d, want %d\n%s", got, before+2*grid.ColumnWidthStep, view(a))
+	}
+	press(t, a, "z", "<")
+	if got := second(); got != before+grid.ColumnWidthStep {
+		t.Fatalf("z <: second column at %d, want %d", got, before+grid.ColumnWidthStep)
+	}
+	press(t, a, "z", "=")
+	if got := second(); got != before {
+		t.Fatalf("z =: second column at %d, want %d", got, before)
+	}
+}

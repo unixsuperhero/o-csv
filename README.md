@@ -14,7 +14,7 @@ Build: `go build -o ~/bin/o-csv .`
 
 ## The viewer
 
-The table fills the screen: a header row, then only the rows that fit on screen. That means a 100k-row file costs one screen per frame, and it loads off the event loop (`sheet.load` is pending work, and the screen says `loading …` while it runs). Each column is as wide as the widest of its first 2,000 values and of the rows drawn so far, capped at 32 cells (the `column-width` setting). Longer cells are cut with `…`. On a narrow screen the columns scroll with the cursor, and the next column shows partly while there is room for it. The status line above the table shows the file, `read-only` or `EDIT`, `row N/M` (with `(of TOTAL)` while a filter is on), `col N/M NAME`, and the active sort, filter, search, frozen column and hidden-column count. The delimiter is guessed from the first 64 KiB, trying comma, tab, semicolon and pipe. `--delim` (or the `delimiter` setting) overrides it. With `--no-header`, the columns are named A, B, C, …
+The table fills the screen: a header row, then only the rows that fit on screen. That means a 100k-row file costs one screen per frame, and it loads off the event loop (`sheet.load` is pending work, and the screen says `loading …` while it runs). Each column is as wide as the widest of its first 2,000 values and of the rows drawn so far, capped at 32 cells (the `column-width` setting). Longer cells are cut with `…`. `z >` and `z <` widen or narrow the cursor's column by 2 cells, past the cap, and `z =` makes every column automatic again; the widths are remembered by column number in the state directory (`tables.json`), for every file. On a narrow screen the columns scroll with the cursor, and the next column shows partly while there is room for it. The status line above the table shows the file, `read-only` or `EDIT`, `row N/M` (with `(of TOTAL)` while a filter is on), `col N/M NAME`, and the active sort, filter, search, frozen column and hidden-column count. The delimiter is guessed from the first 64 KiB, trying comma, tab, semicolon and pipe. `--delim` (or the `delimiter` setting) overrides it. With `--no-header`, the columns are named A, B, C, …
 
 ### Keys
 
@@ -76,7 +76,7 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 
 ## How o-csv is built (a reference app)
 
-o-csv is the family's reference for building an application on the current ochazuke (v0.9.0): a separate module that imports `github.com/unixsuperhero/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
+o-csv is the family's reference for building an application on the current ochazuke (v0.28.0): a separate module that imports `github.com/unixsuperhero/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
 
 | Concept | Where | What to look at |
 |---|---|---|
