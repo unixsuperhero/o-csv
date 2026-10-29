@@ -686,7 +686,9 @@ func TestDotRepeatsAYankAtTheCursor(t *testing.T) {
 }
 
 // A selection yank ends the selection, so its repeat finds none: the
-// selecting guard refuses it and the register keeps the yank.
+// selecting guard keeps it from running, dot says plainly that nothing
+// repeats (ochazuke's repeat.empty, an info line, not an error) and the
+// register keeps the yank.
 func TestDotAfterASelectionYankFailsCleanly(t *testing.T) {
 	a := open(t, cities, true)
 	press(t, a, "V", "j", "y")
@@ -694,8 +696,8 @@ func TestDotAfterASelectionYankFailsCleanly(t *testing.T) {
 		t.Fatalf("V j y: %+v", y)
 	}
 	press(t, a, "j")
-	if s := pressErr(a, "."); s != "selection.yank is not applicable now" {
-		t.Fatalf("j .: status %q", s)
+	if s := pressErr(a, "."); s != "" || a.m.Info != "nothing to repeat" {
+		t.Fatalf("j .: error %q, info %q", s, a.m.Info)
 	}
 	if y, _ := a.r.ReadYank(""); y.Shape != "line" || !strings.HasPrefix(y.Text, "Tokyo\tJapan") || a.grid.Shape() != "" {
 		t.Fatalf("after the refused repeat: %+v, shape %q", y, a.grid.Shape())
