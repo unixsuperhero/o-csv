@@ -48,7 +48,9 @@ The table fills the screen: a header row, then only the rows that fit on screen.
 
 Editing is off by default. Start with `--edit` or press `ctrl+e` to toggle it. Leaving edit mode with unsaved edits is refused. While editing is off, every edit verb is guarded: its key does nothing, the palette does not offer it, and the sheet refuses it underneath. Nothing in a read-only session writes a file (`TestReadOnlyNeverWrites`).
 
-While editing is on, ochazuke's CSV example keys apply: `i` edit a cell, `x` clear, `p` paste, `d d` delete a row (it asks first), `o` insert a row, `r` rename a column, `D` delete a column, `+` add a column, `t u`/`t l`/`t t`/`t i`/`t s` transform, `v`/`V`/`ctrl+v` visual block, row and column selections, `u` / `ctrl+r` undo and redo, `ctrl+s` save. A save keeps the delimiter the file was read with. Every edit is one patch, and its inverse is the undo record. Sorting while editing is an undoable edit. Read-only, a sort only reorders the view.
+While editing is on, ochazuke's CSV example keys apply: `i` edit a cell, `x` clear, `p` paste, `d d` delete a row (it asks first), `o` insert a row, `r` rename a column, `D` delete a column, `+` add a column, `t u`/`t l`/`t t`/`t i`/`t s` transform (upper, lower, trim, Title, slug), `v`/`V`/`ctrl+v` visual block, row and column selections, `u` / `ctrl+r` undo and redo, `ctrl+s` save. A save keeps the delimiter the file was read with.
+
+Transforms act on the innermost thing on the stack: in the table the `t` rows reach the cell, and in a selection the selected cells (`f` there fills down from the top selected cell). `row.transform` (every shown cell of the row) and `column.transform` (every visible cell of the column, through the filter) carry the same `t` rows on their nouns and run from the palette (`: row transform upper`) or a `bindings.json` row; `transformations.list` names the transformations. Inside a selection, `s` sorts by the cursor's column, like `s` outside one, and ends the selection. Every edit is one patch, and its inverse is the undo record. Sorting while editing is an undoable edit. Read-only, a sort only reorders the view.
 
 ## Settings
 

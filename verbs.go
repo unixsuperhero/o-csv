@@ -159,8 +159,10 @@ func (a *App) registerVerbs() {
 			if err != nil {
 				return nil, err
 			}
+			// The rows move under a selection, so a sort ends it.
+			a.grid.Cancel()
 			return done(a.sortBy(j))
-		}), "Sort the rows by this column: ascending, then descending, then (unedited) file order").When(grid.GuardInGrid).
+		}), "Sort the rows by this column: ascending, then descending, then (unedited) file order; ends a selection").When(grid.GuardInGrid).
 		Verb("hide", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
 			j, err := colOf(c)
 			if err != nil {
@@ -441,13 +443,18 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 		a.grid.Cancel()
 		return done(a.Apply(p))
 	})
-	transform := verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
-		p, err := a.Transform(ochazuke.StringArg(args, "name", ""), cells(c))
+	// transformCells applies a named transformation to a cell set as one
+	// patch (one undo), ending any selection: every transform verb's body.
+	transformCells := func(name string, set []grid.Ref) (any, error) {
+		p, err := a.Transform(name, set)
 		if err != nil {
 			return nil, err
 		}
 		a.grid.Cancel()
 		return done(a.Apply(p))
+	}
+	transform := verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
+		return transformCells(ochazuke.StringArg(args, "name", ""), cells(c))
 	})
 	register := map[string]ochazuke.Parameter{"register": {Type: "string", Description: "Register name; the active register, else the unnamed one"}}
 	transformParams := map[string]ochazuke.Parameter{"name": {Type: "string", Required: true, Source: "transformations.list", Description: "A transformation; transformations.list names them"}}
@@ -499,7 +506,20 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 				return nil, err
 			}
 			return done(a.Apply(Patch{Rows: []RowChange{{Index: i + 1, After: slices.Clone(a.Rows[i])}}}))
-		}), "Copy the row below itself (edit mode)").When(guardEditGrid)
+		}), "Copy the row below itself (edit mode)").When(guardEditGrid).
+		Verb("transform", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
+			i, err := rowOf(c)
+			if err != nil {
+				return nil, err
+			}
+			shown := a.showable()
+			set := make([]grid.Ref, 0, len(shown))
+			for _, j := range shown {
+				set = append(set, grid.Ref{Row: i, Col: j})
+			}
+			return transformCells(ochazuke.StringArg(args, "name", ""), set)
+		}), "Apply a named transformation to every shown cell of the row (edit mode)").When(guardEditGrid)
+	params("row.transform", transformParams)
 
 	colOf := func(c ochazuke.Context) (int, error) {
 		at := a.grid.At(c)
@@ -538,7 +558,20 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 			}
 			before := a.column(j)
 			return done(a.Apply(Patch{Columns: []ColumnChange{{Index: j, Before: &before}}}))
-		}), "Delete the column under the cursor (edit mode)").Confirm("Delete column {{id}} ({{name}})?").When(guardEditGrid)
+		}), "Delete the column under the cursor (edit mode)").Confirm("Delete column {{id}} ({{name}})?").When(guardEditGrid).
+		Verb("transform", verb(func(c ochazuke.Context, args ochazuke.Arguments) (any, error) {
+			j, err := colOf(c)
+			if err != nil {
+				return nil, err
+			}
+			visible := a.grid.Visible()
+			set := make([]grid.Ref, 0, len(visible))
+			for _, i := range visible {
+				set = append(set, grid.Ref{Row: i, Col: j})
+			}
+			return transformCells(ochazuke.StringArg(args, "name", ""), set)
+		}), "Apply a named transformation to every visible cell of the column: the rows the filter shows (edit mode)").When(guardEditGrid)
+	params("column.transform", transformParams)
 	params("column.rename", name)
 	params("column.delete", map[string]ochazuke.Parameter{"name": {Type: "string", Required: true, Description: "The column's header, which the confirm names; D fills it"}})
 
@@ -594,10 +627,10 @@ func (a *App) registerEditVerbs(verb func(func(ochazuke.Context, ochazuke.Argume
 	r.Define("transformations").
 		Verb("list", verb(func(ochazuke.Context, ochazuke.Arguments) (any, error) { return TransformationChoices(), nil }), "List the transformations transform accepts: ids with labels, the transform name's pick list").Fetch()
 	setHistory(r, ochazuke.HistoryChange, "sheet.save", "sheet.saveAs", "sheet.addColumn", "sheet.undo", "sheet.redo",
-		"cell.edit", "cell.clear", "cell.paste", "cell.transform", "row.delete", "row.insertBelow", "row.duplicate",
-		"column.rename", "column.delete", "selection.yank", "selection.delete", "selection.paste", "selection.clear", "selection.transform")
+		"cell.edit", "cell.clear", "cell.paste", "cell.transform", "row.delete", "row.insertBelow", "row.duplicate", "row.transform",
+		"column.rename", "column.delete", "column.transform", "selection.yank", "selection.delete", "selection.paste", "selection.clear", "selection.transform")
 	// The yank ends the selection, so its repeat has none to yank: the
-	// selecting guard refuses it ("selection.yank is not applicable now").
+	// selecting guard keeps dot from running it ("nothing to repeat").
 	setRepeatable(r, "selection.yank")
 }
 

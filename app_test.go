@@ -756,3 +756,50 @@ func TestWidthKeysResizeTheDrawnColumn(t *testing.T) {
 		t.Fatalf("z =: second column at %d, want %d", got, before)
 	}
 }
+
+// row.transform and column.transform act on the row's shown cells and the
+// column's visible cells, one patch (one undo) each, only while editing.
+func TestRowAndColumnTransforms(t *testing.T) {
+	ro := open(t, cities, false)
+	for _, key := range []string{"row.transform", "column.transform"} {
+		q := ochazuke.Request{Noun: strings.Split(key, ".")[0], Verb: "transform", Args: ochazuke.Arguments{"name": "upper"}}
+		if _, err := ro.r.Execute(q); err == nil {
+			t.Errorf("%s ran read-only", key)
+		}
+	}
+	a := open(t, cities, true)
+	if _, err := a.r.Execute(ochazuke.Request{Noun: "row", Verb: "transform", Args: ochazuke.Arguments{"name": "upper"}}); err != nil {
+		t.Fatal(err)
+	}
+	if a.Rows[0][0] != "TOKYO" || a.Rows[0][1] != "JAPAN" || a.Rows[1][0] != "Osaka" || len(a.Undo) != 1 {
+		t.Fatalf("row.transform: %v / %v, undo %d", a.Rows[0], a.Rows[1], len(a.Undo))
+	}
+	press(t, a, "u", "l", "-") // hide country: the row transform skips it
+	if _, err := a.r.Execute(ochazuke.Request{Noun: "row", Verb: "transform", Args: ochazuke.Arguments{"name": "upper"}}); err != nil {
+		t.Fatal(err)
+	}
+	if a.Rows[0][0] != "TOKYO" || a.Rows[0][1] != "Japan" {
+		t.Fatalf("row.transform with a hidden column: %v", a.Rows[0])
+	}
+	press(t, a, "u", "g", "=", "0", "l")
+	if _, err := a.r.Execute(ochazuke.Request{Noun: "column", Verb: "filter", Args: ochazuke.Arguments{"query": "Japan"}}); err != nil {
+		t.Fatal(err)
+	}
+	press(t, a, "h")
+	if _, err := a.r.Execute(ochazuke.Request{Noun: "column", Verb: "transform", Args: ochazuke.Arguments{"name": "slug"}}); err != nil {
+		t.Fatal(err)
+	}
+	if a.Rows[0][0] != "tokyo" || a.Rows[1][0] != "osaka" || a.Rows[2][0] != "Lagos" || len(a.Undo) != 1 {
+		t.Fatalf("column.transform over the filter: %v %v %v, undo %d", a.Rows[0][0], a.Rows[1][0], a.Rows[2][0], len(a.Undo))
+	}
+}
+
+// s inside a visual selection sorts by the cursor's column and ends the
+// selection, whose rows have moved.
+func TestSortInsideASelection(t *testing.T) {
+	a := open(t, cities, true)
+	press(t, a, "V", "j", "s")
+	if a.grid.Shape() != "" || a.Rows[0][0] != "Austin" || !a.Sort.On {
+		t.Fatalf("V j s: shape %q, first %q, sort %+v", a.grid.Shape(), a.Rows[0][0], a.Sort)
+	}
+}

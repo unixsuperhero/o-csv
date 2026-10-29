@@ -37,6 +37,8 @@ func (a *App) bind() {
 	shape := func(s string) ochazuke.Binding {
 		return ochazuke.Do("mode.set", ochazuke.Arguments{"mode": s}).Guard(guardEditGrid)
 	}
+	// Every noun that resolves to a cell set (cell, row, column, selection)
+	// has transform and the same t rows; the innermost on the stack answers.
 	transforms := func(m *ochazuke.ModeBuilder, noun string) {
 		for _, kn := range [][2]string{{"t u", "upper"}, {"t l", "lower"}, {"t t", "trim"}, {"t i", "title"}, {"t s", "slug"}} {
 			m.Bind(kn[0], ochazuke.Do(noun+".transform", ochazuke.Arguments{"name": kn[1]}))
@@ -61,15 +63,17 @@ func (a *App) bind() {
 	transforms(cell, "cell")
 	r.Define("cell").Mode("count_pending").Extends("normal")
 
-	r.Define("row").Mode("normal").
+	row := r.Define("row").Mode("normal").
 		Bind("d d", ochazuke.Do("row.delete")).
 		Bind("o", ochazuke.Do("row.insertBelow"))
+	transforms(row, "row")
 
-	r.Define("column").Mode("normal").
+	column := r.Define("column").Mode("normal").
 		Bind("s", ochazuke.Do("column.sort")).
 		Bind("-", ochazuke.Do("column.hide")).
 		Bind("f", ochazuke.Do("column.filter")).
 		Bind("r", ochazuke.Do("column.rename"))
+	transforms(column, "column")
 
 	visual := r.Define("grid")
 	visual.Mode(grid.ShapeRow).Extends(grid.ShapeBlock)
@@ -84,6 +88,7 @@ func (a *App) bind() {
 		Bind("d", ochazuke.Do("selection.delete")).
 		Bind("p", ochazuke.Do("selection.paste")).
 		Bind("c", ochazuke.Do("selection.clear")).
+		Bind("s", ochazuke.Do("column.sort")).
 		Bind("f", ochazuke.Do("selection.transform", ochazuke.Arguments{"name": "fillDown"})).
 		Bind("m", ochazuke.Do("selection.mark")).
 		Bind("M", ochazuke.Do("selection.unmark")).
