@@ -10,8 +10,9 @@
 //	o-csv catalog
 //
 // The table noun (shell.go) is the command line: it reads the file in
-// process and prints JSON. The TUI is an ochazuke runtime of its own
-// (New); it is not mounted on the command line.
+// process and prints JSON. The command line runs on the viewer's runtime
+// without its page (newSheet), so the catalog lists the viewer's verbs;
+// with no sheet open there, its guards keep them inert.
 package main
 
 import (
@@ -177,6 +178,26 @@ func parseInterspersed(flags *flag.FlagSet, args []string) ([]string, error) {
 // nouns, verbs and bindings. The sheet starts empty; Load or sheet.load
 // fills it.
 func New(opts Options, edit bool) (*App, error) {
+	a, err := newSheet(opts, edit)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.r.AddPage(pageID, "Sheet", a.render, ochazuke.Focus(gridID)); err != nil {
+		return nil, err
+	}
+	if err := a.r.OpenPage(pageID); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+// newSheet is New without the page: the runtime with every noun, verb,
+// guard and key row the viewer has, and the sheet instance holding the
+// grid, the detail and the filter field. The command line (newShell)
+// builds on it, so the catalog and operations list describe the viewer's
+// verbs; nothing focuses the grid there and no sheet is open, so the
+// guarded verbs stay inert.
+func newSheet(opts Options, edit bool) (*App, error) {
 	r := ochazuke.NewRuntime()
 	a := &App{r: r, Opts: opts, Edit: edit, Hidden: map[int]bool{}}
 	a.m = ochazuke.NewModel(r)
@@ -216,11 +237,5 @@ func New(opts Options, edit bool) (*App, error) {
 	a.m.ModalViews["picker"] = ochazuke.ModalView{Title: "Choose a path", Render: func(_ *ochazuke.Runtime, _ *ochazuke.Instance, w, h int) ochazuke.Block {
 		return picker.ViewBlock(w, h)
 	}}
-	if _, err := r.AddPage(pageID, "Sheet", a.render, ochazuke.Focus(gridID)); err != nil {
-		return nil, err
-	}
-	if err := r.OpenPage(pageID); err != nil {
-		return nil, err
-	}
 	return a, nil
 }

@@ -14,7 +14,7 @@ Family plans, todos and the roadmap live in `~/hub/o-plans/` (`README.md` is the
 
 | Concern | File |
 |---|---|
-| `main`, oden dispatch (a file word opens the TUI), viewer flags, `--smoke`, `New` (the runtime, page, grid, detail, settings) | `main.go` |
+| `main`, oden dispatch (a file word opens the TUI), viewer flags, `--smoke`, `New` (the page) over `newSheet` (the runtime, grid, detail, settings, verbs, keys; the CLI shares it) | `main.go` |
 | Reading and writing CSV, delimiter detection, type guesses, stats, cell ordering | `sheet.go` |
 | `App` state, `Patch` and undo, `Load`/`Save`, sort, the edit toggle | `app.go` |
 | The table view (window, widths, frozen and hidden columns, highlights), the table/detail split (`PaneLayout`) and the status line | `view.go` |
@@ -24,7 +24,7 @@ Family plans, todos and the roadmap live in `~/hub/o-plans/` (`README.md` is the
 | Filter field, prompt modal | `filter.go`, `prompt.go` |
 | Edit-mode transformations and shaped yanks/pastes | `edit.go` |
 | System clipboard | `clipboard.go` |
-| The `table` CLI noun (`show` answers rows with cells for `--format`, `columns`, `stats`) and `catalog` | `shell.go` |
+| The `table` CLI noun (`show` answers rows with cells for `--format`, `columns`, `stats`) and `catalog`, over the viewer's runtime without its page (`newSheet`) | `shell.go` |
 | Declared settings (`delimiter`, `column-width`), shared by the viewer and the CLI | `settings.go` |
 
 ## Invariants

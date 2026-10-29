@@ -33,6 +33,7 @@ func frameworkOperations() map[string]bool {
 // the catalog's history is that kind. A new verb without one fails here.
 func TestEveryVerbDeclaresItsHistory(t *testing.T) {
 	framework := frameworkOperations()
+	viewer := 0
 	for _, edit := range []bool{false, true} {
 		a, err := New(Options{}, edit)
 		if err != nil {
@@ -51,6 +52,7 @@ func TestEveryVerbDeclaresItsHistory(t *testing.T) {
 		if n == 0 {
 			t.Fatal("the viewer defines no verbs")
 		}
+		viewer = n
 	}
 
 	var doc ocli.CatalogDoc
@@ -71,8 +73,9 @@ func TestEveryVerbDeclaresItsHistory(t *testing.T) {
 			}
 		}
 	}
-	if n != 3 {
-		t.Fatalf("the catalog has %d o-csv verbs, want the table noun's 3", n)
+	// The command line is the viewer's runtime plus the table noun.
+	if n != viewer+3 {
+		t.Fatalf("the catalog has %d o-csv verbs, want the viewer's %d and the table noun's 3", n, viewer)
 	}
 }
 

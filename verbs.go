@@ -13,10 +13,11 @@ import (
 	"github.com/unixsuperhero/ochazuke/grid"
 )
 
-// Guards: edit holds while editing is on; edit-grid also needs the focus in
-// the grid. Every verb that changes the sheet is guarded, so its keys do not
-// answer (and the palette does not offer it) read-only, and Apply refuses
-// it again underneath.
+// Guards: edit holds while editing is on and a sheet is open (loaded: on
+// the command line none is); edit-grid also needs the focus in the grid.
+// Every verb that changes the sheet is guarded, so its keys do not answer
+// (and the palette does not offer it) read-only, and Apply refuses it
+// again underneath.
 const (
 	guardEdit     = "edit"
 	guardEditGrid = "edit-grid"
@@ -30,8 +31,9 @@ func inGrid(r *ochazuke.Runtime, focus string) bool {
 // bindings.go; a verb without a key is reached through the palette (:).
 func (a *App) registerVerbs() {
 	r := a.r
-	r.DefineGuard(guardEdit, func(*ochazuke.Runtime, ochazuke.KeyEvent) bool { return a.Edit })
-	r.DefineGuard(guardEditGrid, func(r *ochazuke.Runtime, ev ochazuke.KeyEvent) bool { return a.Edit && inGrid(r, ev.Focus) })
+	editing := func() bool { return a.Edit && a.Path != "" }
+	r.DefineGuard(guardEdit, func(*ochazuke.Runtime, ochazuke.KeyEvent) bool { return editing() })
+	r.DefineGuard(guardEditGrid, func(r *ochazuke.Runtime, ev ochazuke.KeyEvent) bool { return editing() && inGrid(r, ev.Focus) })
 	verb := func(fn func(c ochazuke.Context, args ochazuke.Arguments) (any, error)) ochazuke.Handler {
 		return func(_ *ochazuke.Runtime, c ochazuke.Context, args ochazuke.Arguments) (any, error) {
 			return fn(c, args)

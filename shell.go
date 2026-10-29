@@ -197,12 +197,18 @@ func Columns(t *Table) []ColumnInfo {
 	return out
 }
 
-// newShell is the NOUN VERB shell over a runtime holding the table noun.
+// newShell is the NOUN VERB shell: the table noun over the viewer's
+// runtime without its page (newSheet), so the catalog and operations list
+// show the viewer's nouns, verbs and key rows beside table. No sheet is
+// open and nothing is in the grid there, so the edit verbs (guarded by
+// edit and edit-grid) and the grid's verbs refuse: only table reads a
+// file from the command line.
 func newShell(stdin io.Reader, stdout, stderr io.Writer) *ocli.Shell {
-	r := ochazuke.NewRuntime()
-	if err := declareSettings(r); err != nil {
+	a, err := newSheet(Options{}, false)
+	if err != nil {
 		panic(err) // the declarations are constants; a test covers them
 	}
+	r := a.r
 	read := func(args ochazuke.Arguments, delim string) (*Table, error) {
 		path := ochazuke.StringArg(args, "path", "")
 		if path == "" {

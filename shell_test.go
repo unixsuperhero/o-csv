@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/unixsuperhero/ochazuke"
+	ocli "github.com/unixsuperhero/ochazuke/cli"
 )
 
 func cli(t *testing.T, args ...string) []byte {
@@ -140,6 +142,59 @@ func TestCatalogDescribesTheTableNoun(t *testing.T) {
 	}
 	if doc.Name != "o-csv" || !verbs["show"] || !verbs["columns"] || !verbs["stats"] {
 		t.Fatalf("catalog: %+v", doc)
+	}
+}
+
+// The catalog carries the viewer's nouns, verbs and key rows, not only
+// table: the edit verbs register up front, so a host sees them. On the
+// command line no sheet is open and nothing is in the grid, so they refuse.
+func TestCatalogCarriesTheViewerVerbs(t *testing.T) {
+	var doc ocli.CatalogDoc
+	if err := json.Unmarshal(cli(t, "catalog"), &doc); err != nil {
+		t.Fatal(err)
+	}
+	have := map[string]bool{}
+	for _, n := range doc.Nouns {
+		for _, v := range n.Verbs {
+			have[n.Name+"."+v.Name] = true
+		}
+	}
+	for _, key := range []string{"table.show", "sheet.save", "sheet.edit", "cell.edit", "cell.transform", "row.transform", "column.transform", "ochazuke.selection.transform", "transformations.list"} {
+		if !have[key] {
+			t.Errorf("the catalog has no %s", key)
+		}
+	}
+	rows := map[string]bool{}
+	for _, b := range doc.Bindings {
+		rows[b.Noun+" "+b.Mode+" "+b.Keys+" "+b.Request.Key()] = true
+	}
+	for _, row := range []string{"row normal t u row.transform", "column normal t s column.transform", "ochazuke.grid visual-block s column.sort"} {
+		if !rows[row] {
+			t.Errorf("the catalog has no key row %q", row)
+		}
+	}
+	if len(doc.Pages) != 0 {
+		t.Errorf("the command line declares pages %+v; the sheet page is the viewer's", doc.Pages)
+	}
+	sh := newShell(nil, io.Discard, io.Discard)
+	for _, q := range []ochazuke.Request{
+		{Noun: "sheet", Verb: "save"}, {Noun: "sheet", Verb: "addColumn", Args: ochazuke.Arguments{"name": "x"}},
+		{Noun: "cell", Verb: "transform", Args: ochazuke.Arguments{"name": "upper"}},
+		{Noun: "row", Verb: "transform", Args: ochazuke.Arguments{"name": "upper"}},
+		{Noun: "column", Verb: "transform", Args: ochazuke.Arguments{"name": "upper"}},
+	} {
+		if _, err := sh.Runtime.Execute(q); err == nil {
+			t.Errorf("%s ran on the command line", q.Key())
+		}
+	}
+	// Turning editing on does not open a sheet: the edit verbs still refuse.
+	if _, err := sh.Runtime.Execute(ochazuke.Request{Noun: "sheet", Verb: "edit", Args: ochazuke.Arguments{"on": true}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []ochazuke.Request{{Noun: "sheet", Verb: "save"}, {Noun: "sheet", Verb: "addColumn", Args: ochazuke.Arguments{"name": "x"}}, {Noun: "sheet", Verb: "undo"}} {
+		if _, err := sh.Runtime.Execute(q); err == nil {
+			t.Errorf("%s ran with editing on and no sheet", q.Key())
+		}
 	}
 }
 
