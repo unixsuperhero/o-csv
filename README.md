@@ -38,7 +38,7 @@ The table fills the screen: a header row, then only the rows that fit on screen.
 | `F` | freeze the first shown column at the left (toggle) |
 | `enter` | show or hide the row detail: every column of the cursor's row with its whole value, wrapped, beside the table (below it under 100 columns). It follows the cursor; the focus stays in the table |
 | `J` / `K` | scroll the row detail while it is longer than its pane (counts work: `5J`) |
-| `>` / `<` / `=` | while the detail shows: grow the table, shrink it, put the divider back (counts work: `3>`). The divider is remembered in `~/.local/state/o-csv/panes.json` |
+| `ctrl+w >` / `ctrl+w <` / `ctrl+w =` | while the detail shows: grow the table, shrink it, put the divider back (counts work: `3 ctrl+w >`). The divider is remembered in `~/.local/state/o-csv/panes.json` |
 | `y` / `Y` | copy the cell / copy the row as one CSV line. The copy goes to the ochazuke registers (`"a y` names one) and to the system clipboard (pbcopy, wl-copy, xclip or xsel, whichever is on PATH). `.` yanks again at the cursor (`y j .` copies the next cell) |
 | `ctrl+o` | open another file |
 | `:` | the command palette (every verb, including those without a key) |
@@ -90,7 +90,7 @@ o-csv is the family's reference for building an application on the current ochaz
 | Work off the loop | `verbs.go` (`sheet.load`, `copyText`), `shell.go` | `Pending(work)` runs I/O as a job; `.Replacing("load")` lets a newer load cancel an older one; `.Then` runs on the loop when it lands. Reads are `.Quiet()` so they stay off the ticker. |
 | Telling the user | `verbs.go` (`copyText`), `app.go` (`saveTo`) | `ctx.Info("copied …")` for a plain message, `ctx.Status` (the error tone) for a failure, `ctx.Notify(…)` / `ctx.ClearNotice(id)` for a lasting problem, `r.UI().Info` where there is no `Ctx`. The TUI shows them in the footer; the CLI prints `status:` (plain), `error:` and `notice:` on stderr. |
 | A page detail | `detail.go` | `AddDetail(id, item)` and `Detail.Window`: the framework keeps the scroll offset, `J`/`K` scroll it while the focus stays in the grid, and a new item starts at the top. |
-| Resizable panes | `view.go` (`sheetView`) | `r.PaneLayout(page, layout)` and `Layout.Divide` make `>` `<` `=` move the divider, remembered per page; the sheet keeps its own rows off those keys. |
+| Resizable panes | `view.go` (`sheetView`) | `r.PaneLayout(page, layout)` and `Layout.Divide` make `ctrl+w >` `<` `=` move the divider, remembered per page; the sheet keeps its own rows off those keys. |
 | Settings | `settings.go` | `DeclareSetting` with a `Validate`, read with `Settings().String/Int`, followed with `Observe`. `settings list|set`, the settings editor and `config export` cover them. |
 | Modals | `prompt.go` | `OpenModal(kind, Payload, WithInput(in, Kind("field")))` for a one-line question; the noun pins insert mode, and `enter`/`esc` are rows on it. |
 | Drawing a component's view | `view.go` (`tableView`) | The grid owns the cursor and the visible rows; the app draws only the window and calls `Placed`/`PlacedAt`, so motions and scrolling follow the screen. |
