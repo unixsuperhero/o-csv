@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/unixsuperhero/ochazuke"
-	"github.com/unixsuperhero/ochazuke/grid"
+	"ofam.dev/ochazuke"
+	"ofam.dev/ochazuke/grid"
 )
 
 // bind installs the key rows. With a cell focused the stack is [cell, row,

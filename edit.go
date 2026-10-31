@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/unixsuperhero/ochazuke"
-	"github.com/unixsuperhero/ochazuke/grid"
+	"ofam.dev/ochazuke"
+	"ofam.dev/ochazuke/grid"
 )
 
 // Edit mode helpers, from ochazuke's examples/csv: named transformations

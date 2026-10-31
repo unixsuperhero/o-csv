@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/unixsuperhero/ochazuke"
-	"github.com/unixsuperhero/ochazuke/grid"
+	"ofam.dev/ochazuke"
+	"ofam.dev/ochazuke/grid"
 )
 
 // Guards: edit holds while editing is on and a sheet is open (loaded: on

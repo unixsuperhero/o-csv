@@ -7,8 +7,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/unixsuperhero/ochazuke"
-	"github.com/unixsuperhero/ochazuke/grid"
+	"ofam.dev/ochazuke"
+	"ofam.dev/ochazuke/grid"
 )
 
 // The table view. The grid component owns the cursor and the visible rows;

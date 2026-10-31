@@ -78,7 +78,7 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 
 ## How o-csv is built (a reference app)
 
-o-csv is the family's reference for building an application on the current ochazuke (v0.31.0): a separate module that imports `github.com/unixsuperhero/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
+o-csv is the family's reference for building an application on the current ochazuke (v0.31.0): a separate module that imports `ofam.dev/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
 
 | Concept | Where | What to look at |
 |---|---|---|

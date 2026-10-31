@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/unixsuperhero/ochazuke"
+	"ofam.dev/ochazuke"
 )
 
 // The knobs a user sets once instead of on every command line, declared as

@@ -12,8 +12,8 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/unixsuperhero/ochazuke"
-	"github.com/unixsuperhero/ochazuke/grid"
+	"ofam.dev/ochazuke"
+	"ofam.dev/ochazuke/grid"
 )
 
 // App is the viewer's state. Domain data never lives on an instance:
