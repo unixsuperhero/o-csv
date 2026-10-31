@@ -7,32 +7,14 @@ import (
 
 	"ofam.dev/ochazuke"
 	ocli "ofam.dev/ochazuke/cli"
-	"ofam.dev/ochazuke/grid"
 )
-
-// frameworkOperations are the operations ochazuke registers on its own for
-// the parts o-csv builds on (the runtime, the model, a grid, the picker):
-// every other operation is a verb o-csv defines.
-func frameworkOperations() map[string]bool {
-	r := ochazuke.NewRuntime()
-	ochazuke.NewModel(r)
-	r.Instance("page", ochazuke.Kind("sheet"))
-	if _, err := grid.New(r, "grid", "page", nil, nil); err != nil {
-		panic(err)
-	}
-	ochazuke.NewPicker(r)
-	out := map[string]bool{}
-	for key := range r.Operations {
-		out[key] = true
-	}
-	return out
-}
 
 // Every verb o-csv defines declares its history kind (Operation.HistoryKind)
 // rather than leaving it to the default, in the viewer and in the catalog, and
-// the catalog's history is that kind. A new verb without one fails here.
+// the catalog's history is that kind. A new verb without one fails here. The
+// framework's own verbs (Operation.Builtin, the catalog's builtin) are left to
+// ochazuke, so a library release that adds some does not change the count.
 func TestEveryVerbDeclaresItsHistory(t *testing.T) {
-	framework := frameworkOperations()
 	viewer := 0
 	for _, edit := range []bool{false, true} {
 		a, err := New(Options{}, edit)
@@ -41,7 +23,7 @@ func TestEveryVerbDeclaresItsHistory(t *testing.T) {
 		}
 		n := 0
 		for key, op := range a.r.Operations {
-			if framework[key] {
+			if op.Builtin {
 				continue
 			}
 			n++
@@ -64,7 +46,7 @@ func TestEveryVerbDeclaresItsHistory(t *testing.T) {
 	for _, noun := range doc.Nouns {
 		for _, v := range noun.Verbs {
 			key := noun.Name + "." + v.Name
-			if framework[key] {
+			if v.Builtin {
 				continue
 			}
 			n++

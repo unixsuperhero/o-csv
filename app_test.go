@@ -601,15 +601,33 @@ func TestSaveIsAtomic(t *testing.T) {
 		t.Fatalf("saved: %v", err)
 	}
 	// saveAs into a directory that cannot be written fails and writes nothing.
-	dir := filepath.Join(t.TempDir(), "locked")
-	if err := os.Mkdir(dir, 0o500); err != nil {
+	// A parent that is a regular file cannot be written by anyone; a 0500
+	// directory only stops a user without root (a root CI runner writes it),
+	// so that case runs only where the mode holds.
+	base := t.TempDir()
+	notDir := filepath.Join(base, "file")
+	if err := os.WriteFile(notDir, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Save(filepath.Join(dir, "out.csv")); err == nil {
-		t.Fatal("save into an unwritable directory succeeded")
+	locked := filepath.Join(base, "locked")
+	if err := os.Mkdir(locked, 0o500); err != nil {
+		t.Fatal(err)
 	}
-	if a.Path != path {
-		t.Fatalf("a failed saveAs moved the sheet to %s", a.Path)
+	targets := []string{filepath.Join(notDir, "out.csv")}
+	if probe, err := os.CreateTemp(locked, "probe"); err == nil {
+		probe.Close()
+		os.Remove(probe.Name())
+		t.Log("a 0500 directory is writable here (root); checking only the file parent")
+	} else {
+		targets = append(targets, filepath.Join(locked, "out.csv"))
+	}
+	for _, target := range targets {
+		if err := a.Save(target); err == nil {
+			t.Fatalf("save into an unwritable directory succeeded: %s", target)
+		}
+		if a.Path != path {
+			t.Fatalf("a failed saveAs moved the sheet to %s", a.Path)
+		}
 	}
 }
 
