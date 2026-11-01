@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 112" width="336" height="112" role="img" aria-label="o-csv">
+<title>o-csv</title>
+<style>@media (prefers-reduced-motion: no-preference){.ocsvA-cur{animation:ocsvA-cur 4.8s cubic-bezier(.45,0,.25,1) infinite}@keyframes ocsvA-cur{0%,12%{transform:none}18%,40%{transform:translate(26.6px,0px)}46%,68%{transform:translate(26.6px,17.4px)}74%,94%{transform:translate(0px,17.4px)}100%{transform:none}}}</style>
+<g transform="translate(2 12)"><rect x="4" y="8" width="80" height="72" rx="10" fill="#dcf7ee"></rect><path d="M14 8H74a10 10 0 0 1 10 10V28H4V18a10 10 0 0 1 10 -10Z" fill="#14b88c"></path><g class="ocsvA-cur"><rect x="30.7" y="45.3" width="26.6" height="17.4" rx="0" fill="#8be0c6"></rect></g><path d="M30.7 28V80M57.3 28V80M4 45.3H84M4 62.7H84" fill="none" stroke="#5f9c86" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path></g>
+<path d="M132 44a20 20 0 1 0 0.01 0M167 64h16M232.1 49.9A20 20 0 1 0 232.1 78.1M276.1 50C273.1 45 268.1 44 262.1 44C254.1 44 248.1 48 248.1 54C248.1 61 255.1 63 262.1 64C269.1 65 277.1 67 277.1 74C277.1 80 270.1 84 262.1 84C255.1 84 249.1 82 247.1 77M292.1 44L309.1 84L326.1 44" fill="none" stroke="#e6f7f1" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
