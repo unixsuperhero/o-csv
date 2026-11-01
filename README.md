@@ -1,6 +1,29 @@
-# o-csv
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="o-csv" src="assets/logo-light.svg" width="360">
+  </picture>
+  <br>
+  <a href="https://github.com/ofamtools/o-csv/tags"><img alt="Latest tag" src="https://img.shields.io/github/v/tag/ofamtools/o-csv"></a>
+  <a href="https://pkg.go.dev/ofam.dev/o-csv"><img alt="Go Reference" src="https://pkg.go.dev/badge/ofam.dev/o-csv.svg"></a>
+  <a href="go.mod"><img alt="Go version" src="https://img.shields.io/github/go-mod/go-version/ofamtools/o-csv"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/ofamtools/o-csv"></a>
+</p>
 
-A CSV viewer for the o family, built on [ochazuke](../ochazuke) (Bubble Tea v2) with an [oden](../oden) command line. It started as a copy of ochazuke's `examples/csv` editor. Viewing comes first. Editing is still there, but it stays off until you ask for it.
+<p align="center">A CSV viewer built on ochazuke. Viewing comes first; editing is there but stays off until you ask for it.</p>
+
+A CSV viewer for the o family, built on [ochazuke](https://github.com/ofamtools/ochazuke) (Bubble Tea v2) with an [oden](https://github.com/ofamtools/oden) command line. It started as a copy of ochazuke's `examples/csv` editor. Viewing comes first. Editing is still there, but it stays off until you ask for it.
+
+## Install
+
+Install with the Go version in [go.mod](go.mod) or newer:
+
+```sh
+go install ofam.dev/o-csv@latest
+mtm extension register csv   # optional: the table verbs in mtm and its MCP gateway
+```
+
+## Usage
 
 ```sh
 o-csv data.csv                  # open a file
@@ -9,8 +32,6 @@ o-csv --delim tab --no-header x.txt
 o-csv --edit data.csv           # start with editing on
 o-csv --smoke data.csv          # render one 80x24 frame to stdout and exit
 ```
-
-Build: `go build -o ~/bin/o-csv .`
 
 ## The viewer
 
@@ -78,7 +99,7 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 
 ## How o-csv is built (a reference app)
 
-o-csv is the family's reference for building an application on the current ochazuke (v0.31.0): a separate module that imports `ofam.dev/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
+o-csv is the family's reference for building an application on the current ochazuke (the version in [go.mod](go.mod)): a separate module that imports `ofam.dev/ochazuke`, owns its state, and gets keys, help, the palette, the jobs ticker, settings and a CLI from the framework. Read the files in this order; each one shows one concept.
 
 | Concept | Where | What to look at |
 |---|---|---|
@@ -86,7 +107,7 @@ o-csv is the family's reference for building an application on the current ochaz
 | Domain code without the framework | `sheet.go` | Reading, writing, delimiter detection, type guesses and stats are plain Go, tested on their own. |
 | Building the tree | `main.go` (`New`, `newSheet`) | `NewRuntime`, an instance for the page, a component under it (`grid.New`), `AddDetail`, an input (`filter.go`), `AddPage`, `OpenPage`, `NewModel`. |
 | Nouns, verbs, guards, confirms | `verbs.go` | `Define(noun).Verb(verb, handler, description)`; `.When(guard)` hides and skips a verb (`DefineGuard("edit", …)`), `.Confirm("Delete row {{id}}?")` asks first, `.Motion()` keeps a verb off the footer. Every verb declares its history kind: `.Fetch()` on a read (`sheet.state`, the `table` verbs), `setHistory(r, ochazuke.HistoryChange|HistoryAction, keys...)` for edits and view moves, so none falls to the default (`history_test.go`). `setRepeatable` marks the yanks `Operation.Repeatable`, so `.` repeats them. Handlers are `func(Ctx) Result` (`Done`, `Failed`, `Pending`). |
-| Binding rows as data | `bindings.go`, `filter.go` | Every key is a row: `Do("noun.verb", args)`, arguments from the key's payload (`FromPayload("steps", SourceCount)`), a pattern row for digits, mode tables that extend others, instance rows (`grid.WithInstanceRows`, `r.Bind`). No key-name switch anywhere; `TestBindingRowsAreAtomic` runs `ValidateBindings`. |
+| Binding rows as data | `bindings.go`, `filter.go`, `main.go` | Every key is a row: `Do("noun.verb", args)`, arguments from the key's payload (`FromPayload("steps", SourceCount)`), a pattern row for digits, mode tables that extend others, instance rows (`grid.WithInstanceRows`, `r.Bind`). No key-name switch anywhere; `TestBindingRowsAreAtomic` runs `ValidateBindings`. |
 | Work off the loop | `verbs.go` (`sheet.load`, `copyText`), `shell.go` | `Pending(work)` runs I/O as a job; `.Replacing("load")` lets a newer load cancel an older one; `.Then` runs on the loop when it lands. Reads are `.Quiet()` so they stay off the ticker. |
 | Telling the user | `verbs.go` (`copyText`), `app.go` (`saveTo`) | `ctx.Info("copied …")` for a plain message, `ctx.Status` (the error tone) for a failure, `ctx.Notify(…)` / `ctx.ClearNotice(id)` for a lasting problem, `r.UI().Info` where there is no `Ctx`. The TUI shows them in the footer; the CLI prints `status:` (plain), `error:` and `notice:` on stderr. |
 | A page detail | `detail.go` | `AddDetail(id, item)` and `Detail.Window`: the framework keeps the scroll offset, `J`/`K` scroll it while the focus stays in the grid, and a new item starts at the top. |
@@ -96,3 +117,11 @@ o-csv is the family's reference for building an application on the current ochaz
 | Drawing a component's view | `view.go` (`tableView`) | The grid owns the cursor and the visible rows; the app draws only the window and calls `Placed`/`PlacedAt`, so motions and scrolling follow the screen. |
 | The CLI and the catalog | `shell.go`, `main.go` (`Main`, `newSheet`) | The viewer's runtime without its page (`newSheet`), plus the `table` noun, behind `ocli.New`, so the catalog describes every verb and key row while the guards keep the viewer's verbs inert there; mounted on oden with `ocli.Mount`: parameters, `.Positional("path")`, `.Rows("row")`, rows in the `{noun, id, data, cells}` shape and the noun's columns, so `--format table|markdown|toon` work. `o-csv catalog` publishes it. |
 | Tests | `app_test.go`, `shell_test.go`, `keys_test.go` | Drive the `Model` with key names (`Press`, `runCmds` for jobs), run the CLI through `Main`, check the frame with `--smoke`. |
+
+## Build
+
+```sh
+GOWORK=off GOFLAGS=-trimpath go build -o o-csv .
+gofmt -l . && GOWORK=off go vet ./... && GOWORK=off go test ./...
+GOWORK=off go run . --smoke testdata/cities.csv
+```
