@@ -19,6 +19,7 @@ A CSV viewer for the o family, built on [ochazuke](https://github.com/ofamtools/
 Install with the Go version in [go.mod](go.mod) or newer:
 
 ```sh
+go install ofam.dev/oden/cmd/o@latest   # oden's o: `o csv` runs o-csv, no dash needed
 go install ofam.dev/o-csv@latest
 mtm extension register csv   # optional: the table verbs in mtm and its MCP gateway
 ```
@@ -26,11 +27,11 @@ mtm extension register csv   # optional: the table verbs in mtm and its MCP gate
 ## Usage
 
 ```sh
-o-csv data.csv                  # open a file
-some-command | o-csv            # or read stdin (also: o-csv -)
-o-csv --delim tab --no-header x.txt
-o-csv --edit data.csv           # start with editing on
-o-csv --smoke data.csv          # render one 80x24 frame to stdout and exit
+o csv data.csv                  # open a file
+some-command | o csv            # or read stdin (also: o csv -)
+o csv --delim tab --no-header x.txt
+o csv --edit data.csv           # start with editing on
+o csv --smoke data.csv          # render one 80x24 frame to stdout and exit
 ```
 
 ## The viewer
@@ -82,20 +83,20 @@ Two knobs live in `~/.config/o-csv/settings.json` (`$XDG_CONFIG_HOME/o-csv`), de
 | `delimiter` | `auto` | the field delimiter when `--delim` is not given: `auto` (detect), `comma`, `tab`, `semicolon`, `pipe`, or one character |
 | `column-width` | `32` | the widest a column grows in the viewer, in cells (3 to 200) |
 
-`o-csv settings list`, `o-csv settings set column-width 24` and `o-csv settings reset delimiter` change them; in the viewer `: settings edit` opens the settings editor and a change applies at once. `o-csv config export` writes a reference of every setting and key row into `~/.config/o-csv/reference/`.
+`o csv settings list`, `o csv settings set column-width 24` and `o csv settings reset delimiter` change them; in the viewer `: settings edit` opens the settings editor and a change applies at once. `o csv config export` writes a reference of every setting and key row into `~/.config/o-csv/reference/`.
 
 ## Command line
 
-`o-csv table VERB FILE [--ARG VALUE]` reads the file in the process and prints JSON. `-` reads stdin. Every verb takes `--delim` and `--no_header`. `--format table|markdown|toon` prints the rows of `table show` (and `table columns`) as a table instead: `table show` draws the CSV's own columns, numbers right-aligned. `--json '{...}'` passes the arguments as JSON instead, and a bare `--json` is accepted and ignored.
+`o csv table VERB FILE [--ARG VALUE]` reads the file in the process and prints JSON. `-` reads stdin. Every verb takes `--delim` and `--no_header`. `--format table|markdown|toon` prints the rows of `table show` (and `table columns`) as a table instead: `table show` draws the CSV's own columns, numbers right-aligned. `--json '{...}'` passes the arguments as JSON instead, and a bare `--json` is accepted and ignored.
 
 | Command | Prints |
 |---|---|
-| `o-csv table show FILE` | the matching rows, each `{noun: "row", id: "row/N", data, cells}`: `N` is its row in the file (whatever the sort), `data` the row as an object keyed by column in header order, `cells` its values. When `--offset`/`--limit` leave rows out, stderr says `status: rows 11–20 of 250`. Options: `--columns a,b`, `--search TEXT`, `--where COL~TEXT`, `--sort COL [--desc]`, `--offset N`, `--limit N` |
-| `o-csv table columns FILE` | `[{index, name, type}]` |
-| `o-csv table stats FILE` | the row and column counts, the delimiter, and per column: the guessed type (empty, bool, int, float, date, string), empty and distinct counts, min, max, widest value |
-| `o-csv catalog` | the runtime catalog for a host that mounts the bin: the `table` noun and every noun, verb and key row of the viewer (`sheet`, `cell`, `row`, `column`, the selection, `transformations`). On the command line no sheet is open, so the viewer's edit and grid verbs answer `is not applicable now`; `o-csv operations list` lists them all |
+| `o csv table show FILE` | the matching rows, each `{noun: "row", id: "row/N", data, cells}`: `N` is its row in the file (whatever the sort), `data` the row as an object keyed by column in header order, `cells` its values. When `--offset`/`--limit` leave rows out, stderr says `status: rows 11–20 of 250`. Options: `--columns a,b`, `--search TEXT`, `--where COL~TEXT`, `--sort COL [--desc]`, `--offset N`, `--limit N` |
+| `o csv table columns FILE` | `[{index, name, type}]` |
+| `o csv table stats FILE` | the row and column counts, the delimiter, and per column: the guessed type (empty, bool, int, float, date, string), empty and distinct counts, min, max, widest value |
+| `o csv catalog` | the runtime catalog for a host that mounts the bin: the `table` noun and every noun, verb and key row of the viewer (`sheet`, `cell`, `row`, `column`, the selection, `transformations`). On the command line no sheet is open, so the viewer's edit and grid verbs answer `is not applicable now`; `o csv operations list` lists them all |
 
-`o-csv help` lists the commands, and `o-csv table --help` lists the verbs and their parameters.
+`o csv help` lists the commands, and `o csv table --help` lists the verbs and their parameters.
 
 ## How o-csv is built (a reference app)
 
@@ -115,7 +116,7 @@ o-csv is the family's reference for building an application on the current ochaz
 | Settings | `settings.go` | `DeclareSetting` with a `Validate`, read with `Settings().String/Int`, followed with `Observe`. `settings list|set`, the settings editor and `config export` cover them. |
 | Modals | `prompt.go` | `OpenModal(kind, Payload, WithInput(in, Kind("field")))` for a one-line question; the noun pins insert mode, and `enter`/`esc` are rows on it. |
 | Drawing a component's view | `view.go` (`tableView`) | The grid owns the cursor and the visible rows; the app draws only the window and calls `Placed`/`PlacedAt`, so motions and scrolling follow the screen. |
-| The CLI and the catalog | `shell.go`, `main.go` (`Main`, `newSheet`) | The viewer's runtime without its page (`newSheet`), plus the `table` noun, behind `ocli.New`, so the catalog describes every verb and key row while the guards keep the viewer's verbs inert there; mounted on oden with `ocli.Mount`: parameters, `.Positional("path")`, `.Rows("row")`, rows in the `{noun, id, data, cells}` shape and the noun's columns, so `--format table|markdown|toon` work. `o-csv catalog` publishes it. |
+| The CLI and the catalog | `shell.go`, `main.go` (`Main`, `newSheet`) | The viewer's runtime without its page (`newSheet`), plus the `table` noun, behind `ocli.New`, so the catalog describes every verb and key row while the guards keep the viewer's verbs inert there; mounted on oden with `ocli.Mount`: parameters, `.Positional("path")`, `.Rows("row")`, rows in the `{noun, id, data, cells}` shape and the noun's columns, so `--format table|markdown|toon` work. `o csv catalog` publishes it. |
 | Tests | `app_test.go`, `shell_test.go`, `keys_test.go` | Drive the `Model` with key names (`Press`, `runCmds` for jobs), run the CLI through `Main`, check the frame with `--smoke`. |
 
 ## Build
