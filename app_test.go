@@ -120,6 +120,103 @@ func TestNavigation(t *testing.T) {
 	}
 }
 
+func TestPromptSharedClose(t *testing.T) {
+	for _, close := range []string{"esc", "q", "modal.close", "field.cancel"} {
+		t.Run(close, func(t *testing.T) {
+			a := open(t, cities, true)
+			focus, mode := a.r.Focus, a.r.BaseMode()
+			committed := false
+			if err := a.prompt("Question", "", "", func(string) error { committed = true; return nil }); err != nil {
+				t.Fatal(err)
+			}
+			press(t, a, "q") // printable keys still belong to the insert field
+			if string(a.field.Text) != "q" {
+				t.Fatalf("typing q: %q", a.field.Text)
+			}
+			switch close {
+			case "q":
+				if err := a.r.SetFocus(promptFrame); err != nil {
+					t.Fatal(err)
+				}
+				if a.r.BaseMode() != "normal" {
+					t.Fatalf("prompt body mode: %q", a.r.BaseMode())
+				}
+				press(t, a, "q")
+			case "esc":
+				press(t, a, "esc")
+			default:
+				noun, verb, _ := strings.Cut(close, ".")
+				if _, err := a.r.Execute(ochazuke.Request{Noun: noun, Verb: verb}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if a.ask != nil || a.r.TopModal() != "" || committed || a.r.Focus != focus || a.r.BaseMode() != mode {
+				t.Fatalf("close: ask %v modal %q committed %v focus %q mode %q", a.ask, a.r.TopModal(), committed, a.r.Focus, a.r.BaseMode())
+			}
+			if err := a.prompt("Again", "", "", func(string) error { committed = true; return nil }); err != nil {
+				t.Fatal(err)
+			}
+			press(t, a, "enter")
+			if !committed {
+				t.Fatal("reopened prompt did not commit")
+			}
+		})
+	}
+}
+
+func TestTableCursorFollowsSelectionSettings(t *testing.T) {
+	a := open(t, cities, false)
+	a.m.Appearance.Theme = "mono"
+	cell := fit("Tokyo", a.widths[0])
+	if got := a.tableView(100, 10); !strings.Contains(got, a.r.Selection(true).Render(cell)) {
+		t.Fatalf("focused cursor is not highlighted:\n%q", got)
+	}
+	if err := a.focusFilter(); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.tableView(100, 10); !strings.Contains(got, a.r.Selection(false).Render(cell)) {
+		t.Fatalf("unfocused cursor lost its faded highlight:\n%q", got)
+	}
+	if _, err := a.r.Settings().SetSession(ochazuke.UnfocusedSelectionSetting, "hide"); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.tableView(100, 10); strings.Contains(got, "\x1b[7m") || strings.Contains(got, "\x1b[2;7m") {
+		t.Fatalf("hide kept an unfocused highlight:\n%q", got)
+	}
+	if err := a.grid.Focus(); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.tableView(100, 10); !strings.Contains(got, a.r.Selection(true).Render(cell)) {
+		t.Fatalf("hide also hid the focused cursor:\n%q", got)
+	}
+}
+
+func TestTablePlaceholders(t *testing.T) {
+	a := open(t, "", false)
+	if got := ansi.Strip(a.tableView(80, 10)); !strings.Contains(got, "no rows") || strings.Contains(got, "(empty") {
+		t.Fatalf("empty sheet:\n%s", got)
+	}
+	if err := a.Load(cities); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.filterBy(0, "missing-city"); err != nil {
+		t.Fatal(err)
+	}
+	if got := ansi.Strip(a.tableView(80, 10)); !strings.Contains(got, "no rows match 'missing-city'") {
+		t.Fatalf("no matching rows:\n%s", got)
+	}
+	headerOnly := filepath.Join(t.TempDir(), "header.csv")
+	if err := os.WriteFile(headerOnly, []byte("city,country\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Load(headerOnly); err != nil {
+		t.Fatal(err)
+	}
+	if got := ansi.Strip(a.tableView(80, 10)); !strings.Contains(got, "no rows") {
+		t.Fatalf("header without rows:\n%s", got)
+	}
+}
+
 func TestHideFreezeAndHorizontalScroll(t *testing.T) {
 	a := open(t, cities, false)
 	press(t, a, "l", "-")
@@ -456,7 +553,7 @@ func TestLoadRunsOffTheLoop(t *testing.T) {
 	if _, err := a.r.Execute(ochazuke.Request{Noun: "sheet", Verb: "load", Target: pageID, Args: ochazuke.Arguments{"path": cities}}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(view(a), "loading testdata/cities.csv") || len(a.Rows) != 0 {
+	if !strings.Contains(view(a), "loading rows… testdata/cities.csv") || len(a.Rows) != 0 {
 		t.Fatal("load ran on the loop")
 	}
 	if err := ocli.Settle(a.r, nil); err != nil {

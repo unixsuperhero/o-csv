@@ -46,7 +46,7 @@ func (a *App) registerPrompt() {
 		}, "Close the prompt without running the question").
 		Mode("insert").
 		Bind("enter", ochazuke.Do("field.commit")).
-		Bind("esc", ochazuke.Do("field.cancel")).
+		Bind("esc", ochazuke.Do("modal.close")).
 		Bind("ctrl+o", ochazuke.Do("picker.open"))
 	// commit runs the question: the edit, rename or path it asked for.
 	setHistory(r, ochazuke.HistoryChange, "field.commit")
@@ -73,7 +73,9 @@ func (a *App) prompt(label, text, kind string, commit func(string) error) error 
 	view.Title = label
 	a.m.ModalViews[promptFrame] = view
 	a.ask = &question{commit: commit}
-	if _, err := a.r.OpenModal(promptFrame, ochazuke.Payload{Prompt: label}, ochazuke.WithInput(a.field, ochazuke.Kind("field"))); err != nil {
+	if _, err := a.r.OpenModal(promptFrame, ochazuke.Payload{Prompt: label},
+		ochazuke.WithInput(a.field, ochazuke.Kind("field")),
+		ochazuke.CloseWith(ochazuke.Request{Noun: "field", Verb: "cancel"})); err != nil {
 		a.ask = nil
 		return err
 	}

@@ -71,7 +71,6 @@ func (a *App) showable() []int {
 // styles of the table.
 var (
 	headerStyle = lipgloss.NewStyle().Bold(true)
-	cursorStyle = lipgloss.NewStyle().Reverse(true)
 	matchStyle  = lipgloss.NewStyle().Underline(true)
 	selectStyle = lipgloss.NewStyle().Underline(true).Bold(true)
 	gutterStyle = lipgloss.NewStyle().Faint(true)
@@ -133,11 +132,11 @@ func (a *App) tableView(width, height int) string {
 	}
 	switch {
 	case a.Loading != "":
-		return blank("loading " + a.Loading + "…")
+		return blank(ochazuke.LoadingText("rows") + " " + a.Loading)
 	case a.LoadErr != nil:
 		return blank("error: " + a.LoadErr.Error())
 	case len(a.Header) == 0:
-		return blank("(empty file)")
+		return blank(ochazuke.EmptyText("rows"))
 	}
 	g := a.grid
 	vrow, col := g.Position()
@@ -227,6 +226,7 @@ func (a *App) tableView(width, height int) string {
 		selected[ref] = true
 	}
 	focused := g.Focused()
+	cursorStyle := a.r.Selection(focused)
 	needle := strings.ToLower(a.Search)
 	lines := make([]string, 0, height)
 	var head strings.Builder
@@ -240,6 +240,13 @@ func (a *App) tableView(width, height int) string {
 		head.WriteString(headerStyle.Render(fit(name, widths[i])))
 	}
 	lines = append(lines, pad(head.String(), width))
+	if len(visible) == 0 && len(lines) < height {
+		text := ochazuke.EmptyText("rows")
+		if a.Filter.Query != "" {
+			text = ochazuke.NoMatchText("rows", a.Filter.Query)
+		}
+		lines = append(lines, fit(text, width))
+	}
 	for r := v.offRow; r < len(visible) && len(lines) < height; r++ {
 		row := visible[r]
 		var b strings.Builder
@@ -250,7 +257,7 @@ func (a *App) tableView(width, height int) string {
 			value := a.Rows[row][j]
 			text := fit(value, widths[i])
 			switch {
-			case r == vrow && j == col && focused:
+			case r == vrow && j == col:
 				text = cursorStyle.Render(text)
 			case selected[ref]:
 				text = selectStyle.Render(text)
